@@ -49,9 +49,6 @@ public class GroupCaseEntity {
     @Column(name = "lead_defendant_name", nullable = false)
     private String leadDefendantName;
 
-    @Column(name = "lead_defendant_dob")
-    private LocalDate leadDefendantDob;
-
     @Column(name = "date_of_hearing", nullable = false)
     private LocalDate dateOfHearing;
 

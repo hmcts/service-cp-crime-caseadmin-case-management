@@ -9,7 +9,6 @@ CREATE TABLE group_case (
     lead_case_id                 UUID          NOT NULL,
     lead_case_urn                VARCHAR(255)  NOT NULL,   -- case URN; no upstream limit, matches PCF viewstore
     lead_defendant_name          VARCHAR(255)  NOT NULL,   -- personal data
-    lead_defendant_dob           DATE,                     -- personal data
     date_of_hearing              DATE          NOT NULL,
     court_hearing_location       VARCHAR(7)    NOT NULL,   -- OU code: 5-char court house + 2-char courtroom
     court_centre_id              UUID          NOT NULL,   -- reference data id, resolved from the OU code at ingestion
