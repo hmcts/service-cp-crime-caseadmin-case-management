@@ -3,8 +3,8 @@ spring:
   datasource:
     # Override these via env in each environment
     url: ${CP_CM_DATASOURCE_URL:jdbc:postgresql://localhost:55432/casemanagement}
-    username: ${CP_CM_DATASOURCE_USERNAME:casemanagement}
-    password: ${CP_CM_DATASOURCE_PASSWORD:casemanagement}
+    username: ${CP_CM_DATASOURCE_USERNAME:postgres}
+    password: ${CP_CM_DATASOURCE_PASSWORD:postgres}
     driver-class-name: ${CP_CM_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
     hikari:
       pool-name: cp-hikari

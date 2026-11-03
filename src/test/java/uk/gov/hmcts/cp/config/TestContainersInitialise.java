@@ -16,8 +16,8 @@ public class TestContainersInitialise
     private static final PostgreSQLContainer<?> POSTGRE_SQL_CONTAINER =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("casemanagement")
-                    .withUsername("casemanagement")
-                    .withPassword("casemanagement")
+                    .withUsername("postgres")
+                    .withPassword("postgres")
                     .withReuse(true);
 
     static {
