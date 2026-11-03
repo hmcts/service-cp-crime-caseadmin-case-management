@@ -22,6 +22,7 @@ ENV SERVER_PORT=${SERVER_PORT:-4550}
 # ---- Dependencies ----
 RUN apt-get update \
     && apt-get install -y curl \
+    && apt-get install -y --only-upgrade libbrotli1 \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- Application files ----
