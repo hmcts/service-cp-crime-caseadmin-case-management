@@ -59,7 +59,6 @@ class GroupCaseRepositoryTest {
         assertThat(saved.getResultingIntent()).isEqualTo(ResultingIntent.GRANT);
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(saved.getUpdatedAt()).isNotNull();
-        assertThat(saved.getVersion()).isZero();
     }
 
     @Test

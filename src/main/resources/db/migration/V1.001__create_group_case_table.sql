@@ -20,7 +20,6 @@ CREATE TABLE group_case (
     resulting_intent             VARCHAR(20)   NOT NULL DEFAULT 'GRANT',
     created_at                   TIMESTAMPTZ   NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    version                      BIGINT        NOT NULL DEFAULT 0,
 
     CONSTRAINT pk_group_case PRIMARY KEY (group_id),
     CONSTRAINT fk_group_case_parent FOREIGN KEY (parent_group_id) REFERENCES group_case (group_id),
