@@ -47,8 +47,10 @@ jobs:
       # Branch-aware version resolution. Release builds keep the action's tag-derived
       # release_version. Non-release builds no longer use the tag-derived draft_version
       # (which leaked the latest semver tag's label into every branch's image); instead:
-      #   team/** push -> <branch-name-without-team/>-<short-sha>
-      #   main / other -> <projectVersion from gradle.properties>-<short-sha>
+      #   team/** push -> case-management-<projectVersion>-<branch-name-without-team/>-<short-sha>
+      #   main / other -> case-management-<projectVersion>-<short-sha>
+      # The short sha keeps every build's Maven version unique (publish rejects a repeat) and
+      # identifies the commit an image was built from. ADO pipeline 460 appends _<timestamp>.
       - name: Resolve artefact version
         id: version
         env:
@@ -57,15 +59,15 @@ jobs:
           RELEASE_VERSION: ${{ steps.artefact.outputs.release_version }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          PROJECT_VERSION="$(grep -E '^projectVersion=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
           if [ "$IS_RELEASE" = "true" ]; then
             VERSION="$RELEASE_VERSION"
           elif [[ "$REF_NAME" == team/* ]]; then
             BRANCH="${REF_NAME#team/}"
             BRANCH="${BRANCH//\//-}"
-            VERSION="${BRANCH}-${SHORT_SHA}"
+            VERSION="case-management-${PROJECT_VERSION}-${BRANCH}-${SHORT_SHA}"
           else
-            PROJECT_VERSION="$(grep -E '^projectVersion=' gradle.properties | cut -d'=' -f2 | tr -d '[:space:]')"
-            VERSION="${PROJECT_VERSION}-${SHORT_SHA}"
+            VERSION="case-management-${PROJECT_VERSION}-${SHORT_SHA}"
           fi
           echo "Resolved artefact version: $VERSION"
           echo "artefact_version=$VERSION" >> "$GITHUB_OUTPUT"
