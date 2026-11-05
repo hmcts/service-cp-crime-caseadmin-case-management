@@ -1,20 +1,25 @@
 package uk.gov.hmcts.cp.services;
 
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uk.gov.hmcts.cp.clients.ProgressionClient;
+import uk.gov.hmcts.cp.clients.ProgressionGroupCaseResponse;
+import uk.gov.hmcts.cp.entity.GroupCaseEntity;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.mappers.GroupCaseMapper;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 
 /**
- * Creates group case records. Membership of the group stays in Progression; this service only
- * owns the group_case row.
+ * Creates and views group case records. Membership of the group stays in Progression; this
+ * service only owns the group_case row.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +30,7 @@ public class GroupCaseService {
 
     private final GroupCaseRepository groupCaseRepository;
     private final GroupCaseMapper groupCaseMapper;
+    private final ProgressionClient progressionClient;
 
     /**
      * Saves a new group case.
@@ -50,6 +56,26 @@ public class GroupCaseService {
             throw exception;
         }
         log.info("Group case {} created", request.getGroupId());
+    }
+
+    /**
+     * Returns the group case view, aggregating its current active member cases from Progression.
+     *
+     * @throws GroupCaseNotFoundException if no group case with this groupId is stored
+     */
+    public GroupCaseResponse getGroupCase(final String cjsCppUid, final UUID groupId, final UUID referredCaseId) {
+        final GroupCaseEntity entity = groupCaseRepository.findById(groupId)
+                .orElseThrow(() -> new GroupCaseNotFoundException(groupId));
+        final ProgressionGroupCaseResponse progressionResponse =
+                progressionClient.getGroupCaseMembers(cjsCppUid, groupId);
+
+        final int actualCaseCount = progressionResponse.getCases().size();
+        if (!entity.getCaseCount().equals(actualCaseCount)) {
+            log.warn("Group case count mismatch: groupId={}, stored={}, actual={}",
+                    groupId, entity.getCaseCount(), actualCaseCount);
+        }
+
+        return groupCaseMapper.toResponse(entity, progressionResponse, referredCaseId);
     }
 
     private static boolean isPrimaryKeyViolation(final DataIntegrityViolationException exception) {
