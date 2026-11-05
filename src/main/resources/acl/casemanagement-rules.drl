@@ -1,0 +1,15 @@
+import uk.gov.moj.cpp.authz.drools.Outcome;
+import uk.gov.moj.cpp.authz.drools.Action;
+
+global uk.gov.moj.cpp.authz.http.providers.UserAndGroupProvider userAndGroupProvider;
+
+// POST /groupcases: prosecution-casefile creates the group case when a group submission is
+// received. System user only (CAD-1849).
+rule "Allow – create group case"
+when
+  $o: Outcome()
+  $a: Action(name == "casemanagement-service.create-group-case")
+  eval(userAndGroupProvider.isMemberOfAnyOfTheSuppliedGroups($a, "System Users"))
+then
+  $o.setSuccess(true);
+end
