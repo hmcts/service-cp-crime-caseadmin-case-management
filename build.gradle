@@ -98,13 +98,15 @@ dependencies {
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 
   // API contract: generated GroupCasesApi interface and models
-  apiSpec 'uk.gov.hmcts.cp:api-cp-crime-caseadmin-case-management:0.0-api-civil-bulk-03'
+  apiSpec 'uk.gov.hmcts.cp:api-cp-crime-caseadmin-case-management:0.0-api-civil-bulk-04'
   implementation 'io.swagger.core.v3:swagger-annotations:2.2.55'
   // Drools-based authz filter configured in application-authz.yml
   implementation 'uk.gov.hmcts.cp:cp-auth-rules-filter:1.0.7'
   // Spring boot core
   implementation 'org.springframework.boot:spring-boot-starter-web'
   implementation 'org.springframework.boot:spring-boot-starter-validation'
+  // RestClient.Builder autoconfiguration: Spring Boot 4 split this out of spring-boot-starter-web
+  implementation 'org.springframework.boot:spring-boot-starter-restclient'
   testImplementation "org.springframework.boot:spring-boot-starter-webmvc-test"
   testImplementation('org.springframework.boot:spring-boot-starter-test') {
     exclude group: 'junit', module: 'junit'
@@ -135,6 +137,9 @@ dependencies {
   testImplementation 'org.springframework.boot:spring-boot-testcontainers'
   testImplementation 'org.testcontainers:postgresql:1.21.4'
   testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
+  // In-process stub for ProgressionClient's RestClient, to prove the vendor media type
+  // (application/vnd.progression.query.group-cases+json) actually deserialises
+  testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
 
 
   // integrationTestImplementation dependencies are needed as they aren't always propagated as expected,

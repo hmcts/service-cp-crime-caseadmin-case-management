@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/progression-query-api/query/api/rest/progression/prosecutioncases/group/.*",
+    "headers": {
+      "CJSCPPUID": { "equalTo": "aaaaaaaa-0000-0000-0000-000000000001" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/vnd.progression.query.group-cases+json"
+    },
+    "jsonBody": {
+      "leadCase": {
+        "caseId": "44444444-4444-4444-4444-444444444441",
+        "caseUrn": "TESTURN0001",
+        "defendantName": "Example Defendant"
+      },
+      "cases": [
+        {
+          "caseId": "44444444-4444-4444-4444-444444444441",
+          "caseUrn": "TESTURN0001",
+          "defendantName": "Example Defendant"
+        }
+      ]
+    }
+  }
+}

@@ -4,9 +4,13 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -29,6 +33,7 @@ import tools.jackson.databind.json.JsonMapper;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 @TestPropertySource(properties = "server.servlet.context-path=")
@@ -37,6 +42,7 @@ import uk.gov.hmcts.cp.services.GroupCaseService;
 class GroupCaseControllerTest {
 
     private static final String PATH = "/groupcases";
+    private static final UUID GROUP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @Autowired
     private MockMvc mockMvc;
@@ -163,5 +169,49 @@ class GroupCaseControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(not(containsString(EXAMPLE_URN))))
                 .andExpect(content().string(not(containsString(EXAMPLE_DEFENDANT))));
+    }
+
+    @Test
+    void getGroupCase_known_group_should_return_200_with_body() throws Exception {
+        final GroupCaseResponse response = GroupCaseResponse.builder().groupId(GROUP_ID).build();
+        when(groupCaseService.getGroupCase(any(), eq(GROUP_ID), isNull())).thenReturn(response);
+
+        mockMvc.perform(get(PATH + "/" + GROUP_ID).header("CJSCPPUID", UUID.randomUUID().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupId").value(GROUP_ID.toString()));
+    }
+
+    @Test
+    void getGroupCase_should_forward_referredCaseId_query_param() throws Exception {
+        final UUID referredCaseId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        when(groupCaseService.getGroupCase(any(), eq(GROUP_ID), eq(referredCaseId)))
+                .thenReturn(GroupCaseResponse.builder().groupId(GROUP_ID).build());
+
+        mockMvc.perform(get(PATH + "/" + GROUP_ID)
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("referredCaseId", referredCaseId.toString()))
+                .andExpect(status().isOk());
+
+        verify(groupCaseService).getGroupCase(any(), eq(GROUP_ID), eq(referredCaseId));
+    }
+
+    @Test
+    void getGroupCase_unknown_group_should_return_404() throws Exception {
+        doThrow(new GroupCaseNotFoundException(GROUP_ID))
+                .when(groupCaseService).getGroupCase(any(), eq(GROUP_ID), isNull());
+
+        mockMvc.perform(get(PATH + "/" + GROUP_ID).header("CJSCPPUID", UUID.randomUUID().toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Not Found"))
+                .andExpect(jsonPath("$.message").value(containsString(GROUP_ID.toString())));
+    }
+
+    @Test
+    void getGroupCase_without_cjscppuid_header_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/" + GROUP_ID))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("CJSCPPUID")));
+
+        verify(groupCaseService, never()).getGroupCase(any(), any(), any());
     }
 }

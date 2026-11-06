@@ -1,5 +1,6 @@
 package uk.gov.hmcts.cp.controllers;
 
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.openapi.api.GroupCasesApi;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 /**
@@ -37,5 +39,25 @@ public class GroupCaseController implements GroupCasesApi {
         log.info("Create group case request received for group {}", createGroupCaseRequest.getGroupId());
         groupCaseService.create(createGroupCaseRequest);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Views a group case with its current active member cases.
+     *
+     * @param cjsCppUid authenticated user identifier from the request header
+     * @param groupId the group case to view
+     * @param cppClientCorrelationId optional correlation identifier supplied by the client
+     * @param referredCaseId optional id of the member case the page was accessed from
+     * @return HTTP 200 with the group case view
+     */
+    @Override
+    public ResponseEntity<GroupCaseResponse> getGroupCase(
+            final String cjsCppUid,
+            final UUID groupId,
+            @Nullable final String cppClientCorrelationId,
+            @Nullable final UUID referredCaseId) {
+
+        log.info("Get group case request received for group {}", groupId);
+        return ResponseEntity.ok(groupCaseService.getGroupCase(cjsCppUid, groupId, referredCaseId));
     }
 }
