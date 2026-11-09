@@ -47,12 +47,13 @@ services:
       SPRING_PROFILES_ACTIVE: integration
       MANAGEMENT_HEALTH_JMS_ENABLED: "false"
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "false"
-      CP_CM_AUTHZ_ENABLED: "false"
+      CP_CM_AUTHZ_ENABLED: "true"
       CP_CM_HTTP_AUDIT_ENABLED: "false"
       CP_CM_AUDIT_ENABLED: "false"
       CASEMANAGEMENT_SYSTEM_USER_ID: "11111111-1111-1111-1111-111111111111"
       # WireMock service running in Docker container
       COMMON_PLATFORM_QUERY_API_BASE_URL: "http://wiremock:8080"
+      CP_CM_BASE_URL: "http://wiremock:8080"
     depends_on:
       db:
         condition: service_healthy

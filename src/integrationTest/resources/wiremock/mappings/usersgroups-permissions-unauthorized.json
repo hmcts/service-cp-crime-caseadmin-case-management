@@ -1,0 +1,21 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "GET",
+    "urlPath": "/usersgroups-query-api/query/api/rest/usersgroups/users/logged-in-user/permissions",
+    "headers": {
+      "CJSCPPUID": { "equalTo": "aaaaaaaa-0000-0000-0000-000000000003" }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/vnd.usersgroups.get-logged-in-user-permissions+json"
+    },
+    "jsonBody": {
+      "groups": [],
+      "switchableRoles": [],
+      "permissions": []
+    }
+  }
+}

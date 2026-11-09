@@ -13,3 +13,14 @@ when
 then
   $o.setSuccess(true);
 end
+
+// GET /groupcases/{groupId}: view a group case and its current active member cases (CAD-1855).
+rule "Allow – view group case"
+when
+  $o: Outcome()
+  $a: Action(name == "casemanagement-service.view-group-case")
+  eval(userAndGroupProvider.isMemberOfAnyOfTheSuppliedGroups($a,
+          "System Users", "Legal Advisers", "Court Associate", "Court Administrators"))
+then
+  $o.setSuccess(true);
+end
