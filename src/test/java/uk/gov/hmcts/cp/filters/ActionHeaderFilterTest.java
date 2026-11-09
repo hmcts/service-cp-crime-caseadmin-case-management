@@ -39,6 +39,13 @@ class ActionHeaderFilterTest {
     }
 
     @Test
+    void get_groupcases_by_id_should_resolve_the_view_action() throws Exception {
+        final HttpServletRequest seen = filtered(request("GET", "/groupcases/2c76c12c-b400-4f92-8caf-7e2bd0a43cd3"));
+
+        assertThat(seen.getHeader(ACTION_HEADER)).isEqualTo("casemanagement-service.view-group-case");
+    }
+
+    @Test
     void caller_supplied_action_should_be_replaced_on_a_recognised_path() throws Exception {
         final MockHttpServletRequest request = request("POST", "/groupcases");
         request.addHeader(ACTION_HEADER, "something-more-permissive");

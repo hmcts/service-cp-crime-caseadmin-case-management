@@ -24,6 +24,7 @@ class CaseManagementDroolsRulesTest {
 
     private static final String DRL = "acl/casemanagement-rules.drl";
     private static final String CREATE_GROUP_CASE = "casemanagement-service.create-group-case";
+    private static final String VIEW_GROUP_CASE = "casemanagement-service.view-group-case";
 
     private static KieContainer kieContainer;
 
@@ -77,5 +78,18 @@ class CaseManagementDroolsRulesTest {
     @Test
     void an_unknown_action_is_denied_even_for_system_users() {
         assertThat(allowed("casemanagement-service.unknown", "System Users")).isFalse();
+    }
+
+    @Test
+    void system_users_legal_advisers_court_associates_and_court_administrators_may_view_a_group_case() {
+        assertThat(allowed(VIEW_GROUP_CASE, "System Users")).isTrue();
+        assertThat(allowed(VIEW_GROUP_CASE, "Legal Advisers")).isTrue();
+        assertThat(allowed(VIEW_GROUP_CASE, "Court Associate")).isTrue();
+        assertThat(allowed(VIEW_GROUP_CASE, "Court Administrators")).isTrue();
+    }
+
+    @Test
+    void a_user_with_no_groups_may_not_view_a_group_case() {
+        assertThat(allowed(VIEW_GROUP_CASE)).isFalse();
     }
 }

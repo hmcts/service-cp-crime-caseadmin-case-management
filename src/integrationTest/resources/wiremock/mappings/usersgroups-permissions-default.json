@@ -1,0 +1,24 @@
+{
+  "priority": 10,
+  "request": {
+    "method": "GET",
+    "urlPath": "/usersgroups-query-api/query/api/rest/usersgroups/users/logged-in-user/permissions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/vnd.usersgroups.get-logged-in-user-permissions+json"
+    },
+    "jsonBody": {
+      "groups": [
+        {
+          "groupId": "55555555-5555-5555-5555-555555555555",
+          "groupName": "System Users",
+          "prosecutingAuthority": null
+        }
+      ],
+      "switchableRoles": [],
+      "permissions": []
+    }
+  }
+}

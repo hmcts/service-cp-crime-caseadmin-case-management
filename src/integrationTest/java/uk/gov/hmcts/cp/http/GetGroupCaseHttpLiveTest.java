@@ -26,6 +26,7 @@ public class GetGroupCaseHttpLiveTest extends AbstractTest {
 
     private static final String NO_MISMATCH_CJSCPPUID = "aaaaaaaa-0000-0000-0000-000000000001";
     private static final String MISMATCH_CJSCPPUID = "aaaaaaaa-0000-0000-0000-000000000002";
+    private static final String UNAUTHORIZED_CJSCPPUID = "aaaaaaaa-0000-0000-0000-000000000003";
 
     private final String baseUrl = System.getProperty("app.baseUrl", "http://localhost:8082/casemanagement-service");
     private final RestTemplate http = new RestTemplate();
@@ -111,5 +112,15 @@ public class GetGroupCaseHttpLiveTest extends AbstractTest {
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(res.getBody()).contains("\"error\":\"Not Found\"");
+    }
+
+    @Test
+    void get_group_for_user_with_no_view_permission_should_return_403() {
+        final UUID groupId = UUID.randomUUID();
+        assertThat(create(groupCase(groupId, 1)).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        final ResponseEntity<String> res = get(groupId, UNAUTHORIZED_CJSCPPUID);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 }

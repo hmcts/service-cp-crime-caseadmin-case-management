@@ -9,10 +9,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Map;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -28,8 +28,11 @@ public class ActionHeaderFilter extends OncePerRequestFilter {
 
     private static final String ACTION_HEADER = "CPP-ACTION";
 
-    private static final Map<String, String> REQUEST_TO_ACTION = Map.of(
-            "POST /groupcases", "casemanagement-service.create-group-case"
+    private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+
+    private static final List<ActionMapping> ACTION_MAPPINGS = List.of(
+            new ActionMapping("POST", "/groupcases", "casemanagement-service.create-group-case"),
+            new ActionMapping("GET", "/groupcases/{groupId}", "casemanagement-service.view-group-case")
     );
 
     @Override
@@ -38,7 +41,12 @@ public class ActionHeaderFilter extends OncePerRequestFilter {
 
         final String servletPath = request.getServletPath();
         final String path = servletPath == null || servletPath.isEmpty() ? request.getRequestURI() : servletPath;
-        final String action = REQUEST_TO_ACTION.get(request.getMethod() + " " + path);
+        final String method = request.getMethod();
+        final String action = ACTION_MAPPINGS.stream()
+                .filter(mapping -> mapping.method().equals(method) && PATH_MATCHER.match(mapping.pathPattern(), path))
+                .map(ActionMapping::action)
+                .findFirst()
+                .orElse(null);
         if (action == null) {
             filterChain.doFilter(request, response);
         } else {
@@ -75,5 +83,8 @@ public class ActionHeaderFilter extends OncePerRequestFilter {
             }
             return Collections.enumeration(names);
         }
+    }
+
+    private record ActionMapping(String method, String pathPattern, String action) {
     }
 }
