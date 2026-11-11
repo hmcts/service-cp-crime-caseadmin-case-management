@@ -35,6 +35,7 @@ import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 public class GroupCaseService {
 
     private static final String PRIMARY_KEY_CONSTRAINT = "pk_group_case";
+    private static final int MIN_PAGE_NUMBER = 1;
 
     // leadDefendantName holds the defendant's full name with the given name first (e.g. "Jane
     // Doe"), so sorting on it also orders by first name; there is no separate first-name column.
@@ -97,8 +98,9 @@ public class GroupCaseService {
     public GroupCaseSearchResponse search(final UUID courtCentreId, final UUID courtRoomId,
             final LocalDate startDate, final LocalDate endDate, final int pageNumber, final int pageSize) {
 
-        if (pageNumber < 1) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "pageNumber must be at least 1");
+        if (pageNumber < MIN_PAGE_NUMBER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "pageNumber must be at least " + MIN_PAGE_NUMBER);
         }
         final LocalDate effectiveEndDate = endDate == null ? startDate : endDate;
         final Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, SEARCH_SORT);
