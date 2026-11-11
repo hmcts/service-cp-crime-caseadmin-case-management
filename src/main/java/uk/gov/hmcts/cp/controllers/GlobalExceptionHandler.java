@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
@@ -102,6 +103,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
             final MethodArgumentTypeMismatchException exception) {
         return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Parameter " + exception.getName() + " is invalid");
+    }
+
+    /** Handles an explicit business-error throw and passes its status straight through. */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(final ResponseStatusException exception) {
+        final HttpStatusCode status = exception.getStatusCode();
+        if (status.is4xxClientError()) {
+            log.warn("Business error: {}", exception.getReason());
+        } else {
+            log.error("Business error: {}", exception.getReason(), exception);
+        }
+        return error(status, HttpStatus.valueOf(status.value()).getReasonPhrase(), exception.getReason());
     }
 
     /** Handles a 4xx from an upstream RestClient call (e.g. Progression) and passes the status through. */
