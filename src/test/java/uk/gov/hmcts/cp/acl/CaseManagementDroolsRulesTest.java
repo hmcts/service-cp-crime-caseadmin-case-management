@@ -25,6 +25,7 @@ class CaseManagementDroolsRulesTest {
     private static final String DRL = "acl/casemanagement-rules.drl";
     private static final String CREATE_GROUP_CASE = "casemanagement-service.create-group-case";
     private static final String VIEW_GROUP_CASE = "casemanagement-service.view-group-case";
+    private static final String SEARCH_GROUP_CASES = "casemanagement-service.search-group-cases";
 
     private static KieContainer kieContainer;
 
@@ -91,5 +92,18 @@ class CaseManagementDroolsRulesTest {
     @Test
     void a_user_with_no_groups_may_not_view_a_group_case() {
         assertThat(allowed(VIEW_GROUP_CASE)).isFalse();
+    }
+
+    @Test
+    void system_users_legal_advisers_court_associates_and_court_administrators_may_search_group_cases() {
+        assertThat(allowed(SEARCH_GROUP_CASES, "System Users")).isTrue();
+        assertThat(allowed(SEARCH_GROUP_CASES, "Legal Advisers")).isTrue();
+        assertThat(allowed(SEARCH_GROUP_CASES, "Court Associate")).isTrue();
+        assertThat(allowed(SEARCH_GROUP_CASES, "Court Administrators")).isTrue();
+    }
+
+    @Test
+    void a_user_with_no_groups_may_not_search_group_cases() {
+        assertThat(allowed(SEARCH_GROUP_CASES)).isFalse();
     }
 }

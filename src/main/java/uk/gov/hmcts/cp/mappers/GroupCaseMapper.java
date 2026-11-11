@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.mappers;
 
 import java.time.ZoneOffset;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 import uk.gov.hmcts.cp.clients.ProgressionAddress;
 import uk.gov.hmcts.cp.clients.ProgressionCaseSummary;
@@ -11,6 +12,8 @@ import uk.gov.hmcts.cp.entity.ResultingIntent;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.DefendantAddress;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSummary;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseWarningDetails;
 import uk.gov.hmcts.cp.openapi.model.GroupMemberCase;
 import uk.gov.hmcts.cp.openapi.model.LeadCase;
@@ -83,6 +86,36 @@ public class GroupCaseMapper {
         }
 
         return response.build();
+    }
+
+    /** Builds a page of group case summaries from a search result; member case ids are not included. */
+    public GroupCaseSearchResponse toSearchResponse(final Page<GroupCaseEntity> page) {
+        return GroupCaseSearchResponse.builder()
+                .groupCases(page.getContent().stream().map(this::toSummary).toList())
+                .page(page.getNumber())
+                .pageSize(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .build();
+    }
+
+    private GroupCaseSummary toSummary(final GroupCaseEntity entity) {
+        return GroupCaseSummary.builder()
+                .groupId(entity.getGroupId())
+                .prosecutingAuthority(entity.getProsecutingAuthorityCode())
+                .leadCase(LeadCase.builder()
+                        .leadCaseId(entity.getLeadCaseId())
+                        .caseUrn(entity.getLeadCaseUrn())
+                        .defendantName(entity.getLeadDefendantName())
+                        .build())
+                .resultingIntent(uk.gov.hmcts.cp.openapi.model.ResultingIntent.valueOf(
+                        entity.getResultingIntent().name()))
+                .dateOfHearing(entity.getDateOfHearing())
+                .courtHearingLocation(entity.getCourtHearingLocation())
+                .courtCentreId(entity.getCourtCentreId().toString())
+                .courtroomId(entity.getCourtroomId() == null ? null : entity.getCourtroomId().toString())
+                .caseCount(entity.getCaseCount())
+                .build();
     }
 
     private GroupMemberCase toGroupMemberCase(final ProgressionCaseSummary caseSummary) {

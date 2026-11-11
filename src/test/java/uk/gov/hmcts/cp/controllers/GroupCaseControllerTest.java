@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
@@ -19,6 +20,8 @@ import static uk.gov.hmcts.cp.fixtures.GroupCaseRequests.EXAMPLE_DEFENDANT;
 import static uk.gov.hmcts.cp.fixtures.GroupCaseRequests.EXAMPLE_URN;
 import static uk.gov.hmcts.cp.fixtures.GroupCaseRequests.validRequest;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +37,7 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 @TestPropertySource(properties = "server.servlet.context-path=")
@@ -43,6 +47,7 @@ class GroupCaseControllerTest {
 
     private static final String PATH = "/groupcases";
     private static final UUID GROUP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID COURT_CENTRE_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
 
     @Autowired
     private MockMvc mockMvc;
@@ -213,5 +218,83 @@ class GroupCaseControllerTest {
                 .andExpect(jsonPath("$.message").value(containsString("CJSCPPUID")));
 
         verify(groupCaseService, never()).getGroupCase(any(), any(), any());
+    }
+
+    @Test
+    void search_valid_request_should_return_200_with_body() throws Exception {
+        final GroupCaseSearchResponse response = GroupCaseSearchResponse.builder()
+                .groupCases(List.of())
+                .page(0)
+                .pageSize(20)
+                .totalElements(0L)
+                .totalPages(0)
+                .build();
+        when(groupCaseService.search(eq(COURT_CENTRE_ID), isNull(),
+                eq(LocalDate.of(2026, 11, 2)), isNull(), eq(1), eq(20))).thenReturn(response);
+
+        mockMvc.perform(get(PATH + "/search")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("courtCentreId", COURT_CENTRE_ID.toString())
+                        .param("startDate", "2026-11-02"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.pageSize").value(20));
+    }
+
+    @Test
+    void search_should_forward_courtroom_endDate_and_page_params() throws Exception {
+        final UUID courtRoomId = UUID.fromString("00000000-0000-0000-0000-000000000011");
+        when(groupCaseService.search(eq(COURT_CENTRE_ID), eq(courtRoomId),
+                eq(LocalDate.of(2026, 11, 2)), eq(LocalDate.of(2026, 11, 6)), eq(2), eq(10)))
+                .thenReturn(GroupCaseSearchResponse.builder().groupCases(List.of()).build());
+
+        mockMvc.perform(get(PATH + "/search")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("courtCentreId", COURT_CENTRE_ID.toString())
+                        .param("courtRoomId", courtRoomId.toString())
+                        .param("startDate", "2026-11-02")
+                        .param("endDate", "2026-11-06")
+                        .param("pageNumber", "2")
+                        .param("pageSize", "10"))
+                .andExpect(status().isOk());
+
+        verify(groupCaseService).search(eq(COURT_CENTRE_ID), eq(courtRoomId),
+                eq(LocalDate.of(2026, 11, 2)), eq(LocalDate.of(2026, 11, 6)), eq(2), eq(10));
+    }
+
+    @Test
+    void search_missing_courtCentreId_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/search")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("startDate", "2026-11-02"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("courtCentreId")));
+
+        verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void search_without_cjscppuid_header_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/search")
+                        .param("courtCentreId", COURT_CENTRE_ID.toString())
+                        .param("startDate", "2026-11-02"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("CJSCPPUID")));
+
+        verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void search_pageNumber_zero_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/search")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("courtCentreId", COURT_CENTRE_ID.toString())
+                        .param("startDate", "2026-11-02")
+                        .param("pageNumber", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value(containsString("greater than or equal to 1")));
+
+        verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
     }
 }

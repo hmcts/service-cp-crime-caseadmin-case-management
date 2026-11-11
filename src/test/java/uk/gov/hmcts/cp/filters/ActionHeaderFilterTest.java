@@ -46,6 +46,13 @@ class ActionHeaderFilterTest {
     }
 
     @Test
+    void get_groupcases_search_should_resolve_the_search_action() throws Exception {
+        final HttpServletRequest seen = filtered(request("GET", "/groupcases/search"));
+
+        assertThat(seen.getHeader(ACTION_HEADER)).isEqualTo("casemanagement-service.search-group-cases");
+    }
+
+    @Test
     void caller_supplied_action_should_be_replaced_on_a_recognised_path() throws Exception {
         final MockHttpServletRequest request = request("POST", "/groupcases");
         request.addHeader(ACTION_HEADER, "something-more-permissive");

@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.controllers;
 
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -15,10 +16,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
@@ -64,6 +67,16 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
     }
 
+    /** Handles a query/path parameter that fails its bean-validation constraint and returns a 400 ErrorResponse. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(final ConstraintViolationException exception) {
+        final String detail = exception.getConstraintViolations().stream()
+                .map(violation -> violation.getMessage())
+                .sorted()
+                .collect(Collectors.joining("; "));
+        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
+    }
+
     /** Handles malformed request bodies and returns a 400 ErrorResponse. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(final HttpMessageNotReadableException exception) {
@@ -74,6 +87,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ErrorResponse> handleMissingRequestHeader(final MissingRequestHeaderException exception) {
         return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Required header " + exception.getHeaderName() + " is missing");
+    }
+
+    /** Handles a missing required query parameter, such as courtCentreId, and returns a 400 ErrorResponse. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingRequestParameter(
+            final MissingServletRequestParameterException exception) {
+        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST,
+                "Required parameter " + exception.getParameterName() + " is missing");
+    }
+
+    /** Handles a query parameter that cannot be converted to its declared type and returns a 400 ErrorResponse. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+            final MethodArgumentTypeMismatchException exception) {
+        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Parameter " + exception.getName() + " is invalid");
     }
 
     /** Handles a 4xx from an upstream RestClient call (e.g. Progression) and passes the status through. */

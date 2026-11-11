@@ -3,6 +3,7 @@ package uk.gov.hmcts.cp.services;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,9 +20,16 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import uk.gov.hmcts.cp.clients.ProgressionCaseSummary;
 import uk.gov.hmcts.cp.clients.ProgressionClient;
 import uk.gov.hmcts.cp.clients.ProgressionGroupCaseResponse;
@@ -31,18 +39,27 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.mappers.GroupCaseMapper;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 
 @ExtendWith(MockitoExtension.class)
 class GroupCaseServiceTest {
 
     private static final UUID GROUP_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID COURT_CENTRE_ID = UUID.fromString("00000000-0000-0000-0000-000000000010");
+    private static final UUID COURT_ROOM_ID = UUID.fromString("00000000-0000-0000-0000-000000000011");
+    private static final LocalDate START_DATE = LocalDate.of(2026, 12, 1);
+    private static final LocalDate END_DATE = LocalDate.of(2026, 12, 5);
+    private static final Sort SEARCH_SORT = Sort.by("dateOfHearing", "leadDefendantName");
 
     @Mock
     private GroupCaseRepository groupCaseRepository;
 
     @Mock
     private ProgressionClient progressionClient;
+
+    @Captor
+    private ArgumentCaptor<Pageable> pageableCaptor;
 
     private GroupCaseService groupCaseService;
 
@@ -186,5 +203,46 @@ class GroupCaseServiceTest {
         assertThat(response.getWarning()).isEqualTo(GroupCaseResponse.WarningEnum.CASE_COUNT_MISMATCH);
         assertThat(response.getWarningDetails().getStoredCaseCount()).isEqualTo(4);
         assertThat(response.getWarningDetails().getActualCaseCount()).isEqualTo(2);
+    }
+
+    @Test
+    void search_without_courtroom_should_query_by_court_centre_and_date_range_sorted_by_date_then_name() {
+        final Page<GroupCaseEntity> page = new PageImpl<>(List.of(storedGroupCase(1)));
+        when(groupCaseRepository.findByCourtCentreIdAndDateOfHearingBetween(
+                eq(COURT_CENTRE_ID), eq(START_DATE), eq(END_DATE), pageableCaptor.capture()))
+                .thenReturn(page);
+
+        final GroupCaseSearchResponse response =
+                groupCaseService.search(COURT_CENTRE_ID, null, START_DATE, END_DATE, 1, 20);
+
+        assertThat(response.getGroupCases()).hasSize(1);
+        assertThat(pageableCaptor.getValue()).isEqualTo(PageRequest.of(0, 20, SEARCH_SORT));
+        verify(groupCaseRepository, never()).findByCourtCentreIdAndCourtroomIdAndDateOfHearingBetween(
+                any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_with_courtroom_should_query_by_court_centre_and_courtroom() {
+        final Page<GroupCaseEntity> page = new PageImpl<>(List.of(storedGroupCase(1)));
+        when(groupCaseRepository.findByCourtCentreIdAndCourtroomIdAndDateOfHearingBetween(
+                eq(COURT_CENTRE_ID), eq(COURT_ROOM_ID), eq(START_DATE), eq(END_DATE), pageableCaptor.capture()))
+                .thenReturn(page);
+
+        final GroupCaseSearchResponse response =
+                groupCaseService.search(COURT_CENTRE_ID, COURT_ROOM_ID, START_DATE, END_DATE, 2, 10);
+
+        assertThat(response.getGroupCases()).hasSize(1);
+        assertThat(pageableCaptor.getValue()).isEqualTo(PageRequest.of(1, 10, SEARCH_SORT));
+    }
+
+    @Test
+    void search_without_endDate_should_default_to_startDate() {
+        when(groupCaseRepository.findByCourtCentreIdAndDateOfHearingBetween(any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        groupCaseService.search(COURT_CENTRE_ID, null, START_DATE, null, 1, 20);
+
+        verify(groupCaseRepository).findByCourtCentreIdAndDateOfHearingBetween(
+                eq(COURT_CENTRE_ID), eq(START_DATE), eq(START_DATE), any());
     }
 }
