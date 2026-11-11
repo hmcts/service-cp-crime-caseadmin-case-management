@@ -1,10 +1,15 @@
 package uk.gov.hmcts.cp.services;
 
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gov.hmcts.cp.clients.ProgressionClient;
@@ -15,6 +20,7 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.mappers.GroupCaseMapper;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 
 /**
@@ -27,6 +33,10 @@ import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 public class GroupCaseService {
 
     private static final String PRIMARY_KEY_CONSTRAINT = "pk_group_case";
+
+    // leadDefendantName holds the defendant's full name with the given name first (e.g. "Jane
+    // Doe"), so sorting on it also orders by first name; there is no separate first-name column.
+    private static final Sort SEARCH_SORT = Sort.by("dateOfHearing", "leadDefendantName");
 
     private final GroupCaseRepository groupCaseRepository;
     private final GroupCaseMapper groupCaseMapper;
@@ -76,6 +86,23 @@ public class GroupCaseService {
         }
 
         return groupCaseMapper.toResponse(entity, progressionResponse, referredCaseId);
+    }
+
+    /**
+     * Searches group cases by court centre (and optional courtroom) over a hearing date range,
+     * sorted by hearing date ascending, then by defendant name ascending.
+     */
+    public GroupCaseSearchResponse search(final UUID courtCentreId, final UUID courtRoomId,
+            final LocalDate startDate, final LocalDate endDate, final int pageNumber, final int pageSize) {
+
+        final LocalDate effectiveEndDate = endDate == null ? startDate : endDate;
+        final Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, SEARCH_SORT);
+        final Page<GroupCaseEntity> page = courtRoomId == null
+                ? groupCaseRepository.findByCourtCentreIdAndDateOfHearingBetween(
+                        courtCentreId, startDate, effectiveEndDate, pageable)
+                : groupCaseRepository.findByCourtCentreIdAndCourtroomIdAndDateOfHearingBetween(
+                        courtCentreId, courtRoomId, startDate, effectiveEndDate, pageable);
+        return groupCaseMapper.toSearchResponse(page);
     }
 
     private static boolean isPrimaryKeyViolation(final DataIntegrityViolationException exception) {

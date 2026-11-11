@@ -9,6 +9,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import uk.gov.hmcts.cp.clients.ProgressionAddress;
 import uk.gov.hmcts.cp.clients.ProgressionCaseSummary;
 import uk.gov.hmcts.cp.clients.ProgressionGroupCaseResponse;
@@ -16,6 +19,7 @@ import uk.gov.hmcts.cp.entity.GroupCaseEntity;
 import uk.gov.hmcts.cp.entity.ResultingIntent;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 
 class GroupCaseMapperTest {
 
@@ -168,5 +172,43 @@ class GroupCaseMapperTest {
                 mapper.toResponse(storedEntity(1), progressionResponse(List.of(summary)), null);
 
         assertThat(response.getCases().get(0).getAddress()).isNull();
+    }
+
+    @Test
+    void toSearchResponse_maps_every_summary_field_and_page_metadata() {
+        final UUID courtroomId = UUID.randomUUID();
+        final GroupCaseEntity entity = storedEntity(2);
+        entity.setCourtroomId(courtroomId);
+        final Page<GroupCaseEntity> page = new PageImpl<>(List.of(entity), PageRequest.of(1, 20), 21);
+
+        final GroupCaseSearchResponse response = mapper.toSearchResponse(page);
+
+        assertThat(response.getPage()).isEqualTo(1);
+        assertThat(response.getPageSize()).isEqualTo(20);
+        assertThat(response.getTotalElements()).isEqualTo(21);
+        assertThat(response.getTotalPages()).isEqualTo(2);
+        assertThat(response.getGroupCases()).hasSize(1);
+
+        final var summary = response.getGroupCases().get(0);
+        assertThat(summary.getGroupId()).isEqualTo(GROUP_ID);
+        assertThat(summary.getProsecutingAuthority()).isEqualTo("EXAMPLE01");
+        assertThat(summary.getDateOfHearing()).isEqualTo(LocalDate.of(2026, 12, 1));
+        assertThat(summary.getCourtHearingLocation()).isEqualTo("B01LY01");
+        assertThat(summary.getCourtCentreId()).isEqualTo(entity.getCourtCentreId().toString());
+        assertThat(summary.getCourtroomId()).isEqualTo(courtroomId.toString());
+        assertThat(summary.getCaseCount()).isEqualTo(2);
+        assertThat(summary.getResultingIntent()).isEqualTo(uk.gov.hmcts.cp.openapi.model.ResultingIntent.WITHDRAW);
+        assertThat(summary.getLeadCase().getLeadCaseId()).isEqualTo(LEAD_CASE_ID);
+        assertThat(summary.getLeadCase().getCaseUrn()).isEqualTo("TESTURN0001");
+        assertThat(summary.getLeadCase().getDefendantName()).isEqualTo("Example Defendant");
+    }
+
+    @Test
+    void toSearchResponse_no_courtroom_should_leave_courtroomId_null() {
+        final Page<GroupCaseEntity> page = new PageImpl<>(List.of(storedEntity(1)), PageRequest.of(0, 20), 1);
+
+        final GroupCaseSearchResponse response = mapper.toSearchResponse(page);
+
+        assertThat(response.getGroupCases().get(0).getCourtroomId()).isNull();
     }
 }

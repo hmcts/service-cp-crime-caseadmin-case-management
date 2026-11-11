@@ -32,6 +32,7 @@ public class ActionHeaderFilter extends OncePerRequestFilter {
 
     private static final List<ActionMapping> ACTION_MAPPINGS = List.of(
             new ActionMapping("POST", "/groupcases", "casemanagement-service.create-group-case"),
+            new ActionMapping("GET", "/groupcases/search", "casemanagement-service.search-group-cases"),
             new ActionMapping("GET", "/groupcases/{groupId}", "casemanagement-service.view-group-case")
     );
 

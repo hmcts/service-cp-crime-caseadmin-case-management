@@ -24,3 +24,14 @@ when
 then
   $o.setSuccess(true);
 end
+
+// GET /groupcases/search: search group cases by court centre and hearing date range (CAD-1851).
+rule "Allow – search group cases"
+when
+  $o: Outcome()
+  $a: Action(name == "casemanagement-service.search-group-cases")
+  eval(userAndGroupProvider.isMemberOfAnyOfTheSuppliedGroups($a,
+          "System Users", "Legal Advisers", "Court Associate", "Court Administrators"))
+then
+  $o.setSuccess(true);
+end
