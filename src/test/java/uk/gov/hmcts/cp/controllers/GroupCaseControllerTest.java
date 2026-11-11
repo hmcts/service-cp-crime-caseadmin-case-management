@@ -283,4 +283,18 @@ class GroupCaseControllerTest {
 
         verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
     }
+
+    @Test
+    void search_pageNumber_zero_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/search")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("courtCentreId", COURT_CENTRE_ID.toString())
+                        .param("startDate", "2026-11-02")
+                        .param("pageNumber", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value(containsString("greater than or equal to 1")));
+
+        verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
+    }
 }

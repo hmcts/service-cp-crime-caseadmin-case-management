@@ -2,6 +2,7 @@ package uk.gov.hmcts.cp.controllers;
 
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +62,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(final MethodArgumentNotValidException exception) {
         final String detail = exception.getBindingResult().getFieldErrors().stream()
                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                .sorted()
+                .collect(Collectors.joining("; "));
+        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
+    }
+
+    /** Handles a query/path parameter that fails its bean-validation constraint and returns a 400 ErrorResponse. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(final ConstraintViolationException exception) {
+        final String detail = exception.getConstraintViolations().stream()
+                .map(violation -> violation.getMessage())
                 .sorted()
                 .collect(Collectors.joining("; "));
         return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
