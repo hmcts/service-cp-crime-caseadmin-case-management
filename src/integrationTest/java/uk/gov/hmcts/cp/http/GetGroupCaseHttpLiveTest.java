@@ -79,7 +79,10 @@ public class GetGroupCaseHttpLiveTest extends AbstractTest {
         final ResponseEntity<String> res = get(groupId, NO_MISMATCH_CJSCPPUID);
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(res.getBody()).contains("\"caseUrn\":\"TESTURN0001\"").contains("\"warning\":null");
+        assertThat(res.getBody())
+                .contains("\"caseUrn\":\"TESTURN0001\"")
+                .contains("\"offenceType\":\"Council Tax\"")
+                .doesNotContain("\"warning\"");
     }
 
     @Test

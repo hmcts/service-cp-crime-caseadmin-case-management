@@ -30,6 +30,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.clients.ProgressionCaseSummary;
 import uk.gov.hmcts.cp.clients.ProgressionClient;
 import uk.gov.hmcts.cp.clients.ProgressionGroupCaseResponse;
@@ -233,6 +235,14 @@ class GroupCaseServiceTest {
 
         assertThat(response.getGroupCases()).hasSize(1);
         assertThat(pageableCaptor.getValue()).isEqualTo(PageRequest.of(1, 10, SEARCH_SORT));
+    }
+
+    @Test
+    void search_pageNumber_less_than_one_should_throw_bad_request() {
+        assertThatThrownBy(() -> groupCaseService.search(COURT_CENTRE_ID, null, START_DATE, END_DATE, 0, 20))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("statusCode", HttpStatus.BAD_REQUEST);
+        verify(groupCaseRepository, never()).findByCourtCentreIdAndDateOfHearingBetween(any(), any(), any(), any());
     }
 
     @Test
