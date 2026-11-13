@@ -98,7 +98,7 @@ dependencies {
   testAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 
   // API contract: generated GroupCasesApi interface and models
-  apiSpec 'uk.gov.hmcts.cp:api-cp-crime-caseadmin-case-management:0.0-api-civil-bulk-06'
+  apiSpec 'uk.gov.hmcts.cp:api-cp-crime-caseadmin-case-management:0.0-api-civil-bulk-07'
   implementation 'io.swagger.core.v3:swagger-annotations:2.2.55'
   // Drools-based authz filter configured in application-authz.yml
   implementation 'uk.gov.hmcts.cp:cp-auth-rules-filter:1.0.7'
