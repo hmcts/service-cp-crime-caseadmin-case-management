@@ -76,8 +76,8 @@ public class GroupCaseMapper {
 
         if (storedCaseCount != actualCaseCount) {
             response.warning(GroupCaseResponse.WarningEnum.CASE_COUNT_MISMATCH)
-                    .warningMessage(("Stored case count (%d) does not match the number of active cases "
-                            + "returned by Progression (%d). The two services may be out of sync.")
+                    .warningMessage(("There are total (%d) number of cases in this bulk, but due to technical issues, " +
+                            "only (%d) number of cases are being displayed here. For further details please contact help desk.")
                             .formatted(storedCaseCount, actualCaseCount))
                     .warningDetails(GroupCaseWarningDetails.builder()
                             .storedCaseCount(storedCaseCount)
