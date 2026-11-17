@@ -127,6 +127,16 @@ dependencies {
   implementation 'org.flywaydb:flyway-core'
   implementation 'org.flywaydb:flyway-database-postgresql'
 
+  // --- Messaging: Azure Service Bus (inbound queue) ---
+  // Same coordinates as service-cp-crime-yot-results-distribution. Connection string locally
+  // (emulator), workload identity (DefaultAzureCredential) in deployed environments.
+  implementation platform('com.azure:azure-sdk-bom:1.3.9')
+  implementation 'com.azure:azure-messaging-servicebus'
+  implementation 'com.azure:azure-identity'
+
+  // --- Messaging: Artemis (public events from other CQRS contexts on the `public.event` topic) ---
+  implementation 'org.springframework.boot:spring-boot-starter-artemis'
+
   // Security: pin transitive tomcat-embed-core to patched version (CVE-2026-41293, -43512, et al.)
   // Brought in transitively via spring-boot-starter-web; >=11.0.0-M1,<11.0.22 are vulnerable
   implementation 'org.apache.tomcat.embed:tomcat-embed-core:11.0.26'
@@ -146,6 +156,8 @@ dependencies {
   // In-process stub for ProgressionClient's RestClient, to prove the vendor media type
   // (application/vnd.progression.query.group-cases+json) actually deserialises
   testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
+  // Embedded Artemis broker for the public-event listener test (spring.artemis.mode=embedded)
+  testImplementation 'org.apache.artemis:artemis-jakarta-server'
 
 
   // integrationTestImplementation dependencies are needed as they aren't always propagated as expected,
@@ -162,6 +174,14 @@ dependencies {
   integrationTestAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 }
 
+
+// Only the Jakarta JMS client may be on the classpath (as in yot-results-distribution): a javax
+// JMS API or the non-Jakarta Artemis client arriving transitively would split the JMS types.
+configurations.all {
+  exclude group: 'javax.jms', module: 'javax.jms-api'
+  exclude group: 'org.apache.activemq', module: 'artemis-jms-client'
+  exclude group: 'org.apache.artemis', module: 'artemis-jms-client'
+}
 
 springBoot {
   buildInfo {
