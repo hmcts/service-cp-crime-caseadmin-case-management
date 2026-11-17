@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.services;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.mappers.GroupCaseMapper;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 
@@ -110,6 +112,14 @@ public class GroupCaseService {
                 : groupCaseRepository.findByCourtCentreIdAndCourtroomIdAndDateOfHearingBetween(
                         courtCentreId, courtRoomId, startDate, effectiveEndDate, pageable);
         return groupCaseMapper.toSearchResponse(page);
+    }
+
+    /**
+     * Returns the resulting intent for each requested group case. Group ids that are not found
+     * are omitted from the response.
+     */
+    public GroupCaseResultingIntentsResponse getResultingIntents(final List<UUID> groupIds) {
+        return groupCaseMapper.toResultingIntentsResponse(groupCaseRepository.findAllById(groupIds));
     }
 
     private static boolean isPrimaryKeyViolation(final DataIntegrityViolationException exception) {

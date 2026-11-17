@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.mappers;
 
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,8 @@ import uk.gov.hmcts.cp.entity.ResultingIntent;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.DefendantAddress;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntent;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSummary;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseWarningDetails;
@@ -115,6 +118,21 @@ public class GroupCaseMapper {
                 .courtCentreId(entity.getCourtCentreId().toString())
                 .courtroomId(entity.getCourtroomId() == null ? null : entity.getCourtroomId().toString())
                 .caseCount(entity.getCaseCount())
+                .build();
+    }
+
+    /** Builds the resulting intent per requested group case; group ids not found are omitted by the caller. */
+    public GroupCaseResultingIntentsResponse toResultingIntentsResponse(final List<GroupCaseEntity> entities) {
+        return GroupCaseResultingIntentsResponse.builder()
+                .groupCases(entities.stream().map(this::toResultingIntent).toList())
+                .build();
+    }
+
+    private GroupCaseResultingIntent toResultingIntent(final GroupCaseEntity entity) {
+        return GroupCaseResultingIntent.builder()
+                .groupId(entity.getGroupId())
+                .resultingIntent(uk.gov.hmcts.cp.openapi.model.ResultingIntent.valueOf(
+                        entity.getResultingIntent().name()))
                 .build();
     }
 
