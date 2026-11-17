@@ -158,6 +158,13 @@ dependencies {
   testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
   // Embedded Artemis broker for the public-event listener test (spring.artemis.mode=embedded)
   testImplementation 'org.apache.artemis:artemis-jakarta-server'
+  // Azure Service Bus emulator (plus the SQL Server it needs) and a Toxiproxy in front of it, so the
+  // e2e suite consumes real deliveries and can cut the broker connection. Same modules as
+  // yot-results-distribution; 2.x coordinates, versions from the testcontainers-bom that the Spring
+  // Boot BOM imports (testcontainers core already resolves to 2.x here).
+  testImplementation 'org.testcontainers:testcontainers-azure'
+  testImplementation 'org.testcontainers:testcontainers-toxiproxy'
+  testRuntimeOnly 'com.microsoft.sqlserver:mssql-jdbc'
 
 
   // integrationTestImplementation dependencies are needed as they aren't always propagated as expected,

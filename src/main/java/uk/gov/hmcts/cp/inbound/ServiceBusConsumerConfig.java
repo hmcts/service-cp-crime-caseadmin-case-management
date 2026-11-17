@@ -71,8 +71,9 @@ public class ServiceBusConsumerConfig {
 
     @Bean
     public ConsumerLifecycleController caseManagementConsumerLifecycle(
-            final ServiceBusProcessorClient processor, final MessagingProperties properties) {
-        return new ConsumerLifecycleController(processor, properties.servicebus().queueName());
+            final ServiceBusProcessorClient processor, final MessagingProperties properties,
+            final ServiceBusHealthIndicator health) {
+        return new ConsumerLifecycleController(processor, properties.servicebus().queueName(), health);
     }
 
     private static void logSettings(final MessagingProperties.Servicebus settings) {

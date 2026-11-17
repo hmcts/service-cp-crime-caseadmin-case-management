@@ -3,6 +3,7 @@ package uk.gov.hmcts.cp.inbound;
 import com.azure.messaging.servicebus.ServiceBusProcessorClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
+import uk.gov.hmcts.cp.config.ServiceBusHealthIndicator;
 
 /**
  * The only thing that starts or stops the Service Bus consumer. Intake begins once the whole context
@@ -20,16 +21,20 @@ public class ConsumerLifecycleController implements SmartLifecycle {
 
     private final ServiceBusProcessorClient processor;
     private final String queueName;
+    private final ServiceBusHealthIndicator health;
 
-    public ConsumerLifecycleController(final ServiceBusProcessorClient processor, final String queueName) {
+    public ConsumerLifecycleController(final ServiceBusProcessorClient processor, final String queueName,
+            final ServiceBusHealthIndicator health) {
         this.processor = processor;
         this.queueName = queueName;
+        this.health = health;
     }
 
     @Override
     public void start() {
         log.info("Starting the Service Bus consumer. queue={}", queueName);
         processor.start();
+        health.recordIntakeStarted();
     }
 
     @Override

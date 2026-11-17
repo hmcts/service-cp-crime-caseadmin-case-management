@@ -144,6 +144,10 @@ jobs:
           docker pull mcr.microsoft.com/azure-storage/azurite:3.33.0
           docker pull eclipse-temurin:25-jre
           docker pull testcontainers/ryuk:0.12.0
+          # Service Bus e2e suites (src/test/.../e2e): the emulator, its SQL Server and the proxy
+          docker pull mcr.microsoft.com/azure-messaging/servicebus-emulator:1.1.2
+          docker pull mcr.microsoft.com/mssql/server:2022-latest
+          docker pull ghcr.io/shopify/toxiproxy:2.12.0
 
       # `check` runs the unit tests and the docker-compose `integration` task, which builds the image
       # from docker/Dockerfile, waits for the app/db/wiremock stack to be healthy and tests it over
@@ -176,8 +180,33 @@ jobs:
             build/test-results/integration/
             build/reports/jacoco/test/
 
+  # The packaged-artefact gate, as in yot-results-distribution: the real image against the committed
+  # docker-compose.yml brokers (Service Bus emulator, Artemis), required to report healthy and to
+  # consume one message from each broker. It builds its own bootJar, so it only needs the
+  # Artefact-Version ordering.
+  Container-Smoke:
+    needs: [ Artefact-Version ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+        with:
+          gradle-version: current
+
+      - name: Container smoke
+        run: ./scripts/container-smoke.sh
+
   Provider-Deploy:
-    needs: [ Artefact-Version, Build, Test ]
+    needs: [ Artefact-Version, Build, Test, Container-Smoke ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code

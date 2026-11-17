@@ -42,6 +42,9 @@ services:
       - CP_CM_ARTEMIS_BROKER_URL=tcp://artemis:61616
       - CP_CM_ARTEMIS_USER=admin
       - CP_CM_ARTEMIS_PASSWORD=admin
+      # Lists the servicebus / publicEvents components on /actuator/health (and their own paths,
+      # which are 404 otherwise); used by scripts/container-smoke.sh. Local only.
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS=always
     depends_on:
       db:
         condition: service_healthy
