@@ -19,6 +19,7 @@ import uk.gov.hmcts.cp.entity.GroupCaseEntity;
 import uk.gov.hmcts.cp.entity.ResultingIntent;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 
 class GroupCaseMapperTest {
@@ -210,5 +211,23 @@ class GroupCaseMapperTest {
         final GroupCaseSearchResponse response = mapper.toSearchResponse(page);
 
         assertThat(response.getGroupCases().get(0).getCourtroomId()).isNull();
+    }
+
+    @Test
+    void toResultingIntentsResponse_maps_groupId_and_resultingIntent_per_entity() {
+        final GroupCaseResultingIntentsResponse response =
+                mapper.toResultingIntentsResponse(List.of(storedEntity(1)));
+
+        assertThat(response.getGroupCases()).hasSize(1);
+        assertThat(response.getGroupCases().get(0).getGroupId()).isEqualTo(GROUP_ID);
+        assertThat(response.getGroupCases().get(0).getResultingIntent())
+                .isEqualTo(uk.gov.hmcts.cp.openapi.model.ResultingIntent.WITHDRAW);
+    }
+
+    @Test
+    void toResultingIntentsResponse_no_entities_should_return_empty_list() {
+        final GroupCaseResultingIntentsResponse response = mapper.toResultingIntentsResponse(List.of());
+
+        assertThat(response.getGroupCases()).isEmpty();
     }
 }

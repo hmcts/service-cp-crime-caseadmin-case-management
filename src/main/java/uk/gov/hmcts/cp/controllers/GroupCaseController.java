@@ -1,6 +1,7 @@
 package uk.gov.hmcts.cp.controllers;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.openapi.api.GroupCasesApi;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
@@ -91,5 +93,23 @@ public class GroupCaseController implements GroupCasesApi {
         log.info("Search group cases request received for court centre {}", courtCentreId);
         return ResponseEntity.ok(groupCaseService.search(
                 courtCentreId, courtRoomId, startDate, endDate, pageNumber, pageSize));
+    }
+
+    /**
+     * Returns the resulting intent for each requested group case.
+     *
+     * @param cjsCppUid authenticated user identifier from the request header
+     * @param groupIds group case ids to look up
+     * @param cppClientCorrelationId optional correlation identifier supplied by the client
+     * @return HTTP 200 with the resulting intent per group case found
+     */
+    @Override
+    public ResponseEntity<GroupCaseResultingIntentsResponse> getGroupCaseResultingIntents(
+            final String cjsCppUid,
+            final List<UUID> groupIds,
+            @Nullable final String cppClientCorrelationId) {
+
+        log.info("Get group case resulting intents request received for {} group id(s)", groupIds.size());
+        return ResponseEntity.ok(groupCaseService.getResultingIntents(groupIds));
     }
 }

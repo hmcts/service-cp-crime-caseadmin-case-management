@@ -53,6 +53,13 @@ class ActionHeaderFilterTest {
     }
 
     @Test
+    void get_groupcases_resultintent_should_resolve_the_resulting_intents_action() throws Exception {
+        final HttpServletRequest seen = filtered(request("GET", "/groupcases/resultintent"));
+
+        assertThat(seen.getHeader(ACTION_HEADER)).isEqualTo("casemanagement-service.get-group-case-resulting-intents");
+    }
+
+    @Test
     void caller_supplied_action_should_be_replaced_on_a_recognised_path() throws Exception {
         final MockHttpServletRequest request = request("POST", "/groupcases");
         request.addHeader(ACTION_HEADER, "something-more-permissive");

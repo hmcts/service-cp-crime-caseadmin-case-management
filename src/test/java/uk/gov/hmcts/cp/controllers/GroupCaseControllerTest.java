@@ -37,7 +37,10 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntent;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
+import uk.gov.hmcts.cp.openapi.model.ResultingIntent;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 @TestPropertySource(properties = "server.servlet.context-path=")
@@ -296,5 +299,69 @@ class GroupCaseControllerTest {
                 .andExpect(jsonPath("$.message").value(containsString("greater than or equal to 1")));
 
         verify(groupCaseService, never()).search(any(), any(), any(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void resultingIntents_valid_request_should_return_200_with_body() throws Exception {
+        final GroupCaseResultingIntentsResponse response = GroupCaseResultingIntentsResponse.builder()
+                .groupCases(List.of(GroupCaseResultingIntent.builder()
+                        .groupId(GROUP_ID)
+                        .resultingIntent(ResultingIntent.GRANT)
+                        .build()))
+                .build();
+        when(groupCaseService.getResultingIntents(List.of(GROUP_ID))).thenReturn(response);
+
+        mockMvc.perform(get(PATH + "/resultintent")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("groupIds", GROUP_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupCases[0].groupId").value(GROUP_ID.toString()))
+                .andExpect(jsonPath("$.groupCases[0].resultingIntent").value("GRANT"));
+    }
+
+    @Test
+    void resultingIntents_should_forward_comma_separated_groupIds() throws Exception {
+        final UUID secondGroupId = UUID.fromString("00000000-0000-0000-0000-000000000004");
+        when(groupCaseService.getResultingIntents(List.of(GROUP_ID, secondGroupId)))
+                .thenReturn(GroupCaseResultingIntentsResponse.builder().groupCases(List.of()).build());
+
+        mockMvc.perform(get(PATH + "/resultintent")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("groupIds", GROUP_ID + "," + secondGroupId))
+                .andExpect(status().isOk());
+
+        verify(groupCaseService).getResultingIntents(List.of(GROUP_ID, secondGroupId));
+    }
+
+    @Test
+    void resultingIntents_unknown_group_should_be_omitted_with_200() throws Exception {
+        when(groupCaseService.getResultingIntents(List.of(GROUP_ID)))
+                .thenReturn(GroupCaseResultingIntentsResponse.builder().groupCases(List.of()).build());
+
+        mockMvc.perform(get(PATH + "/resultintent")
+                        .header("CJSCPPUID", UUID.randomUUID().toString())
+                        .param("groupIds", GROUP_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupCases").isEmpty());
+    }
+
+    @Test
+    void resultingIntents_missing_groupIds_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/resultintent")
+                        .header("CJSCPPUID", UUID.randomUUID().toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("groupIds")));
+
+        verify(groupCaseService, never()).getResultingIntents(any());
+    }
+
+    @Test
+    void resultingIntents_without_cjscppuid_header_should_return_400() throws Exception {
+        mockMvc.perform(get(PATH + "/resultintent")
+                        .param("groupIds", GROUP_ID.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("CJSCPPUID")));
+
+        verify(groupCaseService, never()).getResultingIntents(any());
     }
 }

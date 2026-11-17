@@ -41,6 +41,7 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.mappers.GroupCaseMapper;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
+import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
 
@@ -254,5 +255,24 @@ class GroupCaseServiceTest {
 
         verify(groupCaseRepository).findByCourtCentreIdAndDateOfHearingBetween(
                 eq(COURT_CENTRE_ID), eq(START_DATE), eq(START_DATE), any());
+    }
+
+    @Test
+    void getResultingIntents_found_groups_should_return_their_resulting_intent() {
+        when(groupCaseRepository.findAllById(List.of(GROUP_ID))).thenReturn(List.of(storedGroupCase(1)));
+
+        final GroupCaseResultingIntentsResponse response = groupCaseService.getResultingIntents(List.of(GROUP_ID));
+
+        assertThat(response.getGroupCases()).hasSize(1);
+        assertThat(response.getGroupCases().get(0).getGroupId()).isEqualTo(GROUP_ID);
+    }
+
+    @Test
+    void getResultingIntents_unknown_group_should_be_omitted() {
+        when(groupCaseRepository.findAllById(List.of(GROUP_ID))).thenReturn(List.of());
+
+        final GroupCaseResultingIntentsResponse response = groupCaseService.getResultingIntents(List.of(GROUP_ID));
+
+        assertThat(response.getGroupCases()).isEmpty();
     }
 }
