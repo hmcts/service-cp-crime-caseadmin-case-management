@@ -61,6 +61,9 @@ sourceSets {
     }
     resources.srcDir file('src/pactVerificationTest/resources')
   }
+  // Java senders that scripts/container-smoke.sh uses to push one message through each local broker
+  // (Artemis public.event, Service Bus emulator queue) into the running container.
+  smoke
 }
 
 configurations {
@@ -73,6 +76,10 @@ configurations {
   //Uncomment when using pact tests
   pactVerificationTestImplementation.extendsFrom testImplementation
   pactVerificationTestRuntimeOnly.extendsFrom runtimeOnly
+
+  // The smoke senders use the same broker clients (and versions) as the service itself.
+  smokeImplementation.extendsFrom implementation
+  smokeRuntimeOnly.extendsFrom runtimeOnly
 
   // Ensure testRuntimeClasspath can be resolved for agent injection
   testRuntimeClasspath {
@@ -127,6 +134,16 @@ dependencies {
   implementation 'org.flywaydb:flyway-core'
   implementation 'org.flywaydb:flyway-database-postgresql'
 
+  // --- Messaging: Azure Service Bus (inbound queue) ---
+  // Same coordinates as service-cp-crime-yot-results-distribution. Connection string locally
+  // (emulator), workload identity (DefaultAzureCredential) in deployed environments.
+  implementation platform('com.azure:azure-sdk-bom:1.3.9')
+  implementation 'com.azure:azure-messaging-servicebus'
+  implementation 'com.azure:azure-identity'
+
+  // --- Messaging: Artemis (public events from other CQRS contexts on the `public.event` topic) ---
+  implementation 'org.springframework.boot:spring-boot-starter-artemis'
+
   // Security: pin transitive tomcat-embed-core to patched version (CVE-2026-41293, -43512, et al.)
   // Brought in transitively via spring-boot-starter-web; >=11.0.0-M1,<11.0.22 are vulnerable
   implementation 'org.apache.tomcat.embed:tomcat-embed-core:11.0.26'
@@ -146,6 +163,15 @@ dependencies {
   // In-process stub for ProgressionClient's RestClient, to prove the vendor media type
   // (application/vnd.progression.query.group-cases+json) actually deserialises
   testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
+  // Embedded Artemis broker for the public-event listener test (spring.artemis.mode=embedded)
+  testImplementation 'org.apache.artemis:artemis-jakarta-server'
+  // Azure Service Bus emulator (plus the SQL Server it needs) and a Toxiproxy in front of it, so the
+  // e2e suite consumes real deliveries and can cut the broker connection. Same modules as
+  // yot-results-distribution; 2.x coordinates, versions from the testcontainers-bom that the Spring
+  // Boot BOM imports (testcontainers core already resolves to 2.x here).
+  testImplementation 'org.testcontainers:testcontainers-azure'
+  testImplementation 'org.testcontainers:testcontainers-toxiproxy'
+  testRuntimeOnly 'com.microsoft.sqlserver:mssql-jdbc'
 
 
   // integrationTestImplementation dependencies are needed as they aren't always propagated as expected,
@@ -162,6 +188,14 @@ dependencies {
   integrationTestAnnotationProcessor 'org.projectlombok:lombok:1.18.48'
 }
 
+
+// Only the Jakarta JMS client may be on the classpath (as in yot-results-distribution): a javax
+// JMS API or the non-Jakarta Artemis client arriving transitively would split the JMS types.
+configurations.all {
+  exclude group: 'javax.jms', module: 'javax.jms-api'
+  exclude group: 'org.apache.activemq', module: 'artemis-jms-client'
+  exclude group: 'org.apache.artemis', module: 'artemis-jms-client'
+}
 
 springBoot {
   buildInfo {
@@ -191,6 +225,7 @@ tasks.named("pmdMain").configure {
 tasks.named("pmdTest").configure { enabled = false }
 tasks.named("pmdIntegrationTest").configure { enabled = false }
 tasks.named("pmdPactVerificationTest").configure { enabled = false }
+tasks.named("pmdSmoke").configure { enabled = false }
 
 /* ---------------- Artefact ---------------- */
 
@@ -303,9 +338,11 @@ tasks.named('build') {
   dependsOn tasks.named('integration')
 }
 
-// Run integration tests as part of check, after unit tests
+// Run integration tests as part of check, after unit tests. The smoke senders are compiled here too,
+// so a break in src/smoke fails the build rather than only the Container-Smoke job.
 tasks.named('check') {
   dependsOn tasks.named('integration')
+  dependsOn tasks.named('smokeClasses')
 }
 
 tasks.named('jacocoTestReport') {
@@ -378,6 +415,22 @@ tasks.register('pactVerificationTest', Test) {
 
 tasks.named('processPactVerificationTestResources') {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+/* ---------------- Container smoke senders (used by scripts/container-smoke.sh) ---------------- */
+
+tasks.register('publishPublicEvent', JavaExec) {
+  description = 'Publishes one public event to the local Artemis public.event topic. --args="[groupId] [eventName]"'
+  group = 'Container smoke'
+  classpath = sourceSets.smoke.runtimeClasspath
+  mainClass = 'uk.gov.hmcts.cp.smoke.PublicEventPublisher'
+}
+
+tasks.register('sendServiceBusMessage', JavaExec) {
+  description = 'Sends one message to the local Service Bus emulator queue. --args="[json] [subject]" or --args=--peek-dlq'
+  group = 'Container smoke'
+  classpath = sourceSets.smoke.runtimeClasspath
+  mainClass = 'uk.gov.hmcts.cp.smoke.ServiceBusMessageSender'
 }
 
 /* ---------------- Publishing ---------------- */

@@ -21,7 +21,13 @@ Shared HMCTS code rules are imported via `.claude/CLAUDE.md` (gitignored, create
 ./gradlew bootRun               # local run, port 8082 (SERVER_PORT); needs Postgres on localhost:55432 (docker-compose.yml)
 ./gradlew pactVerificationTest  # Pact provider verification (tests tagged 'pact', needs pact.broker.* props/env)
 ./gradlew dependencyUpdates     # check dependency versions
+./scripts/container-smoke.sh    # build the image, run it against docker-compose.yml brokers, prove one delivery from each
+./gradlew -q publishPublicEvent [--args="[groupId] [eventName]"]        # publish a public event to local Artemis
+./gradlew -q sendServiceBusMessage [--args="'<json>' [subject]"]        # send to the local Service Bus emulator queue
+./gradlew -q sendServiceBusMessage --args=--peek-dlq                    # peek its dead-letter queue
 ```
+
+- The repo is Java only: no Python scripts or tests. Tools that the smoke script needs live in the `src/smoke` source set as Java mains.
 
 - Compiler runs with `-Xlint:unchecked -Werror`: warnings fail the build.
 - Docker Compose gradle plugin manages the integration stack; `composeBuild` depends on `bootJar`.
