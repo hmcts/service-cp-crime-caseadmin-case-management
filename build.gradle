@@ -61,6 +61,9 @@ sourceSets {
     }
     resources.srcDir file('src/pactVerificationTest/resources')
   }
+  // Java senders that scripts/container-smoke.sh uses to push one message through each local broker
+  // (Artemis public.event, Service Bus emulator queue) into the running container.
+  smoke
 }
 
 configurations {
@@ -73,6 +76,10 @@ configurations {
   //Uncomment when using pact tests
   pactVerificationTestImplementation.extendsFrom testImplementation
   pactVerificationTestRuntimeOnly.extendsFrom runtimeOnly
+
+  // The smoke senders use the same broker clients (and versions) as the service itself.
+  smokeImplementation.extendsFrom implementation
+  smokeRuntimeOnly.extendsFrom runtimeOnly
 
   // Ensure testRuntimeClasspath can be resolved for agent injection
   testRuntimeClasspath {
@@ -218,6 +225,7 @@ tasks.named("pmdMain").configure {
 tasks.named("pmdTest").configure { enabled = false }
 tasks.named("pmdIntegrationTest").configure { enabled = false }
 tasks.named("pmdPactVerificationTest").configure { enabled = false }
+tasks.named("pmdSmoke").configure { enabled = false }
 
 /* ---------------- Artefact ---------------- */
 
@@ -330,9 +338,11 @@ tasks.named('build') {
   dependsOn tasks.named('integration')
 }
 
-// Run integration tests as part of check, after unit tests
+// Run integration tests as part of check, after unit tests. The smoke senders are compiled here too,
+// so a break in src/smoke fails the build rather than only the Container-Smoke job.
 tasks.named('check') {
   dependsOn tasks.named('integration')
+  dependsOn tasks.named('smokeClasses')
 }
 
 tasks.named('jacocoTestReport') {
@@ -405,6 +415,22 @@ tasks.register('pactVerificationTest', Test) {
 
 tasks.named('processPactVerificationTestResources') {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+/* ---------------- Container smoke senders (used by scripts/container-smoke.sh) ---------------- */
+
+tasks.register('publishPublicEvent', JavaExec) {
+  description = 'Publishes one public event to the local Artemis public.event topic. --args="[groupId] [eventName]"'
+  group = 'Container smoke'
+  classpath = sourceSets.smoke.runtimeClasspath
+  mainClass = 'uk.gov.hmcts.cp.smoke.PublicEventPublisher'
+}
+
+tasks.register('sendServiceBusMessage', JavaExec) {
+  description = 'Sends one message to the local Service Bus emulator queue. --args="[json] [subject]" or --args=--peek-dlq'
+  group = 'Container smoke'
+  classpath = sourceSets.smoke.runtimeClasspath
+  mainClass = 'uk.gov.hmcts.cp.smoke.ServiceBusMessageSender'
 }
 
 /* ---------------- Publishing ---------------- */

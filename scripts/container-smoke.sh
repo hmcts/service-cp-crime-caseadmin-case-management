@@ -7,8 +7,10 @@
 # Modelled on service-cp-crime-yot-results-distribution's scripts/container-smoke.sh (which stops at
 # readiness); run locally and by the Container-Smoke job in .github/workflows/ci-build-publish.yml.
 #
-# Needs Docker and python3. On Apple Silicon, Docker Desktop must have "Use Rosetta for x86_64/amd64
-# emulation" switched on: the emulator's SQL Server image is amd64-only and crashes without it.
+# The messages are sent by the Java senders in src/smoke (Gradle tasks publishPublicEvent and
+# sendServiceBusMessage). Needs Docker and a JDK. On Apple Silicon, Docker Desktop must have "Use
+# Rosetta for x86_64/amd64 emulation" switched on: the emulator's SQL Server image is amd64-only and
+# crashes without it.
 set -euo pipefail
 
 readonly HEALTH_BUDGET_SECONDS=180
@@ -77,17 +79,17 @@ wait_for "the application live and the public.event subscription UP" "$HEALTH_BU
    && curl --silent --fail --max-time 3 '$HEALTH_URL/publicEvents' | grep -q '\"status\":\"UP\"'"
 
 log "publishing a public event to Artemis"
-GROUP_ID=$(python3 -c 'import uuid; print(uuid.uuid4())')
-python3 scripts/publish-public-event.py "$GROUP_ID"
+GROUP_ID=$(./gradlew -q publishPublicEvent | sed -n 's/^published .* groupId=\([^ ]*\).*/\1/p')
+[ -n "$GROUP_ID" ] || { log "FAIL: publishPublicEvent did not report a groupId"; exit 1; }
+log "published groupId=${GROUP_ID}"
 wait_for "the public event applied in the container" "$DELIVERY_BUDGET_SECONDS" \
   "app_logs | grep -q 'Group prosecution cases created in progression. groupId=${GROUP_ID}'"
 
 log "sending a message to the Service Bus emulator"
-VENV=build/smoke-venv
-[ -x "$VENV/bin/python" ] || python3 -m venv "$VENV"
-"$VENV/bin/pip" install --quiet azure-servicebus
-MESSAGE_ID=$("$VENV/bin/python" scripts/send-servicebus-message.py "{\"groupId\":\"${GROUP_ID}\"}" smoke.test \
+MESSAGE_ID=$(./gradlew -q sendServiceBusMessage --args="'{\"groupId\":\"${GROUP_ID}\"}' smoke.test" \
   | sed -n 's/^sent messageId=\([^ ]*\).*/\1/p')
+[ -n "$MESSAGE_ID" ] || { log "FAIL: sendServiceBusMessage did not report a messageId"; exit 1; }
+log "sent messageId=${MESSAGE_ID}"
 wait_for "the Service Bus message applied in the container" "$DELIVERY_BUDGET_SECONDS" \
   "app_logs | grep -q 'Service Bus message applied. messageId=${MESSAGE_ID}'"
 wait_for "the servicebus health component UP" 30 \
