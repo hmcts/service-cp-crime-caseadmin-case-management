@@ -1,0 +1,59 @@
+# Messaging: the Azure Service Bus inbound queue and the Artemis `public.event` subscription.
+# Same shape and property names as service-cp-crime-yot-results-distribution, under the
+# `casemanagement` prefix. Both halves are OFF unless switched on, so the docker-compose
+# integration stack (which has no broker) keeps a healthy actuator.
+spring:
+  # The Artemis connection behind the `public.event` subscription. Bindings only: the broker URL and
+  # credentials come from Key Vault in deployed environments.
+  artemis:
+    broker-url: ${CP_CM_ARTEMIS_BROKER_URL:}
+    user: ${CP_CM_ARTEMIS_USER:}
+    password: ${CP_CM_ARTEMIS_PASSWORD:}
+
+  jms:
+    # `public.event` is a TOPIC; a queue-shaped container would silently receive nothing.
+    pub-sub-domain: true
+    # DURABLE, so events published while every pod is down are delivered afterwards. No client-id:
+    # the subscription is SHARED (set in PublicEventsConfig), so every replica attaches to the one
+    # subscription name and the broker load-balances across them.
+    subscription-durable: true
+
+management:
+  health:
+    # The broker must not gate readiness: a blip would roll the pods. Subscription state is
+    # reported by PublicEventsHealthIndicator instead.
+    jms:
+      enabled: false
+
+casemanagement:
+  consumer:
+    # Master switch for the Service Bus intake.
+    enabled: ${CP_CM_SERVICEBUS_ENABLED:false}
+
+  servicebus:
+    # Exactly one of connection-string / namespace must be set when the consumer is enabled.
+    # LOCAL: the emulator's well-known development string (ends UseDevelopmentEmulator=true).
+    # DEPLOYED: set namespace (e.g. xxx.servicebus.windows.net) for workload identity.
+    connection-string: ${CP_CM_SERVICEBUS_CONNECTION_STRING:}
+    namespace: ${CP_CM_SERVICEBUS_NAMESPACE:}
+    # PLACEHOLDER: no queue name or message contract has been agreed yet. Override per environment
+    # with CP_CM_SERVICEBUS_QUEUE_NAME, and keep docker/servicebus-emulator/config.json in step.
+    queue-name: ${CP_CM_SERVICEBUS_QUEUE_NAME:casemanagement.requests}
+    max-concurrent-calls: 2
+    # Mirrors the queue's own MaxDeliveryCount; change both together.
+    max-delivery-count: 5
+    max-auto-lock-renew-duration: 5m
+    # An unresolved connection error older than this, with no traffic since, stops being reported
+    # as an outage: an idle queue produces no traffic, and absence of traffic is not a failure.
+    health-staleness: 60s
+
+  publicevents:
+    # Master switch for the `public.event` subscription.
+    enabled: ${CP_CM_PUBLICEVENTS_ENABLED:false}
+    # The estate's one multicast address for public events from the CQRS contexts.
+    topic: public.event
+    # The shared durable subscription's name, and its whole identity. Changing it (or the selector)
+    # abandons the existing subscription and its backlog.
+    subscription: casemanagement-service.progression
+    # Applied by the BROKER, so only the named events reach this service.
+    selector: "CPPNAME IN ('public.progression.group-prosecution-cases-created')"

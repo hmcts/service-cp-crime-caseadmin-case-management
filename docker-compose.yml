@@ -33,8 +33,24 @@ services:
       - CP_CM_DATASOURCE_URL=${CP_CM_DATASOURCE_URL:-jdbc:postgresql://db:5432/casemanagement}
       - CP_CM_DATASOURCE_USERNAME=${CP_CM_DATASOURCE_USERNAME:-postgres}
       - CP_CM_DATASOURCE_PASSWORD=${CP_CM_DATASOURCE_PASSWORD:-postgres}
+      # Azure Service Bus intake, against the emulator below
+      - CP_CM_SERVICEBUS_ENABLED=true
+      - CP_CM_SERVICEBUS_CONNECTION_STRING=Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+      - CP_CM_SERVICEBUS_QUEUE_NAME=casemanagement.requests
+      # public.event subscription, against the Artemis below
+      - CP_CM_PUBLICEVENTS_ENABLED=true
+      - CP_CM_ARTEMIS_BROKER_URL=tcp://artemis:61616
+      - CP_CM_ARTEMIS_USER=admin
+      - CP_CM_ARTEMIS_PASSWORD=admin
+      # Lists the servicebus / publicEvents components on /actuator/health (and their own paths,
+      # which are 404 otherwise); used by scripts/container-smoke.sh. Local only.
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS=always
     depends_on:
       db:
+        condition: service_healthy
+      servicebus-emulator:
+        condition: service_started
+      artemis:
         condition: service_healthy
     ports:
       - "${SERVER_PORT:-8082}:${SERVER_PORT:-8082}"
@@ -46,6 +62,52 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+
+  # Azure Service Bus emulator (LOCAL ONLY). The queue is declared in
+  # docker/servicebus-emulator/config.json. Same images as yot-results-distribution.
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:1.1.2
+    ports:
+      - "5672:5672"
+      - "5300:5300"
+    environment:
+      ACCEPT_EULA: "Y"
+      SQL_SERVER: servicebus-emulator-mssql
+      MSSQL_SA_PASSWORD: "LocalOnly_Passw0rd!"
+    volumes:
+      - ./docker/servicebus-emulator/config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    depends_on:
+      - servicebus-emulator-mssql
+    networks:
+      - service-network
+
+  servicebus-emulator-mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "LocalOnly_Passw0rd!"
+    networks:
+      - service-network
+
+  # The CQRS contexts' public-event broker. `public.event` is created as a multicast address (topic).
+  artemis:
+    image: apache/activemq-artemis:2.42.0-alpine
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+    environment:
+      ARTEMIS_USER: admin
+      ARTEMIS_PASSWORD: admin
+      ANONYMOUS_LOGIN: "false"
+      EXTRA_ARGS: "--http-host 0.0.0.0 --relax-jolokia --addresses public.event"
+    healthcheck:
+      test: ["CMD-SHELL", "/var/lib/artemis-instance/bin/artemis check node --up --user admin --password admin || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks:
+      - service-network
 
 networks:
   service-network:
