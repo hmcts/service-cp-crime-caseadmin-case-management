@@ -270,7 +270,7 @@ class PublicEventsSubscriptionIT {
             endpoint.setDestination(TOPIC);
             endpoint.setSubscription(subscription);
             endpoint.setSelector(selector);
-            endpoint.setMessageListener(this::record);
+            endpoint.setMessageListener(this::capture);
             final DefaultMessageListenerContainer pod =
                     publicEventListenerContainerFactory.createListenerContainer(endpoint);
             pods.add(pod);
@@ -278,7 +278,7 @@ class PublicEventsSubscriptionIT {
             pod.start();
         }
 
-        private void record(final Message message) {
+        private void capture(final Message message) {
             try {
                 delivered.add(((TextMessage) message).getText());
             } catch (JMSException unreadable) {

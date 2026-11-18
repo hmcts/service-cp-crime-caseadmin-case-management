@@ -47,8 +47,10 @@ class QueueOutageRecoveryIT {
 
     /** Holds the one message this suite names open until released; everything else applies at once. */
     static class HoldingHandler {
+        // S7467: the exception is named for readability; only the interrupt flag is restored.
         @Bean
         @Primary
+        @SuppressWarnings("java:S7467")
         InboundMessageHandler holdingHandler() {
             return message -> {
                 if (HELD.equals(message.messageId())) {

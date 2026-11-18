@@ -12,4 +12,9 @@ public class InvalidMessageException extends RuntimeException {
     public InvalidMessageException(final String reason) {
         super(reason);
     }
+
+    /** As above, keeping what made the message unreadable as the cause, for the stack trace. */
+    public InvalidMessageException(final String reason, final Throwable cause) {
+        super(reason, cause);
+    }
 }

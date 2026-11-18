@@ -95,6 +95,8 @@ public class ProgressionEventListener {
         sink.groupProsecutionCasesCreated(groupId, event);
     }
 
+    // S7467: the exception is named for readability; an unparseable id is simply "no id".
+    @SuppressWarnings("java:S7467")
     private static UUID uuid(final JsonNode payload, final String field) {
         final JsonNode value = payload.path(field);
         if (!value.isString()) {

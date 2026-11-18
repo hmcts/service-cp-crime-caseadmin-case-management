@@ -81,32 +81,32 @@ public class CaseManagementMessageListener {
             }
             return body;
         } catch (JacksonException notJson) {
-            throw new InvalidMessageException("message body is not valid JSON");
+            throw new InvalidMessageException("message body is not valid JSON", notJson);
         }
     }
 
     private void settle(
             final ServiceBusReceivedMessageContext context, final SettlementDecision decision) {
         switch (decision) {
-            case SettlementDecision.Complete ignored -> {
-                if (accepted("complete", context::complete)) {
-                    log.info("Delivery completed.");
-                }
-            }
-            case SettlementDecision.Abandon handedBack -> {
-                if (accepted("abandon", context::abandon)) {
-                    log.info("Delivery returned for redelivery. reason={}", handedBack.reason());
-                }
-            }
-            case SettlementDecision.DeadLetter parked -> {
-                final DeadLetterOptions options = new DeadLetterOptions()
-                        .setDeadLetterReason(parked.reason())
-                        .setDeadLetterErrorDescription(parked.description());
-                if (accepted("deadletter", () -> context.deadLetter(options))) {
-                    log.warn("Delivery parked on the dead-letter queue. reason={} detail={}",
-                            parked.reason(), parked.description());
-                }
-            }
+            case SettlementDecision.Complete() -> settleThenLog("complete", context::complete,
+                    () -> log.info("Delivery completed."));
+            case SettlementDecision.Abandon(String reason) -> settleThenLog("abandon", context::abandon,
+                    () -> log.info("Delivery returned for redelivery. reason={}", reason));
+            case SettlementDecision.DeadLetter(String reason, String description) -> settleThenLog(
+                    "deadletter",
+                    () -> context.deadLetter(new DeadLetterOptions()
+                            .setDeadLetterReason(reason)
+                            .setDeadLetterErrorDescription(description)),
+                    () -> log.warn("Delivery parked on the dead-letter queue. reason={} detail={}",
+                            reason, description));
+        }
+    }
+
+    /** Settles once via {@link #accepted}, and logs the outcome only if the broker took it. */
+    private void settleThenLog(
+            final String operation, final Runnable brokerCall, final Runnable onSettled) {
+        if (accepted(operation, brokerCall)) {
+            onSettled.run();
         }
     }
 
