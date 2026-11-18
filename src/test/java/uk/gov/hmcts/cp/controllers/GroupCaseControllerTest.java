@@ -27,20 +27,28 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
+import uk.gov.hmcts.cp.exceptions.ProgressionCommandRejectedException;
+import uk.gov.hmcts.cp.exceptions.SystemUserNotConfiguredException;
+import uk.gov.hmcts.cp.openapi.model.ExtractCasesRequest;
+import uk.gov.hmcts.cp.openapi.model.ExtractLeadCase;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntent;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.openapi.model.ResultingIntent;
+import uk.gov.hmcts.cp.services.GroupCaseExtractService;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 @TestPropertySource(properties = "server.servlet.context-path=")
@@ -60,6 +68,9 @@ class GroupCaseControllerTest {
 
     @MockitoBean
     private GroupCaseService groupCaseService;
+
+    @MockitoBean
+    private GroupCaseExtractService groupCaseExtractService;
 
     private MockHttpServletRequestBuilder createRequest(final Object body) {
         return post(PATH)
@@ -363,5 +374,99 @@ class GroupCaseControllerTest {
                 .andExpect(jsonPath("$.message").value(containsString("CJSCPPUID")));
 
         verify(groupCaseService, never()).getResultingIntents(any());
+    }
+
+    private static ExtractCasesRequest.ExtractCasesRequestBuilder extractOne() {
+        return ExtractCasesRequest.builder()
+                .caseIds(List.of(UUID.fromString("00000000-0000-0000-0000-000000000003")))
+                .newGroup(false)
+                .resultingIntent(ResultingIntent.GRANT);
+    }
+
+    private MockHttpServletRequestBuilder extractRequest(final Object body) {
+        return post(PATH + "/" + GROUP_ID + "/extractcases")
+                .header("CJSCPPUID", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(jsonMapper.writeValueAsString(body));
+    }
+
+    @Test
+    void extract_valid_request_should_return_204_with_no_body() throws Exception {
+        final ExtractCasesRequest request = extractOne().build();
+
+        mockMvc.perform(extractRequest(request))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(emptyString()));
+
+        verify(groupCaseExtractService).extractCases(eq(GROUP_ID), eq(request));
+    }
+
+    @Test
+    void extract_missing_case_ids_should_return_400() throws Exception {
+        mockMvc.perform(extractRequest(extractOne().caseIds(null).build()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("caseIds")));
+
+        verify(groupCaseExtractService, never()).extractCases(any(), any());
+    }
+
+    @Test
+    void extract_lead_case_without_urn_should_return_400() throws Exception {
+        final ExtractLeadCase leadCase = ExtractLeadCase.builder()
+                .caseId(UUID.randomUUID()).defendantName(EXAMPLE_DEFENDANT).build();
+
+        mockMvc.perform(extractRequest(extractOne().leadCase(leadCase).build()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(not(containsString(EXAMPLE_DEFENDANT))));
+
+        verify(groupCaseExtractService, never()).extractCases(any(), any());
+    }
+
+    @Test
+    void extract_without_cjscppuid_header_should_return_400() throws Exception {
+        mockMvc.perform(post(PATH + "/" + GROUP_ID + "/extractcases")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMapper.writeValueAsString(extractOne().build())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void extract_rejected_by_business_rule_should_return_400() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only one case can be removed at a time"))
+                .when(groupCaseExtractService).extractCases(eq(GROUP_ID), any(ExtractCasesRequest.class));
+
+        mockMvc.perform(extractRequest(extractOne().build()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Only one case can be removed at a time"));
+    }
+
+    @Test
+    void extract_unknown_group_should_return_404() throws Exception {
+        doThrow(new GroupCaseNotFoundException(GROUP_ID))
+                .when(groupCaseExtractService).extractCases(eq(GROUP_ID), any(ExtractCasesRequest.class));
+
+        mockMvc.perform(extractRequest(extractOne().build()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void extract_not_accepted_by_progression_should_return_500() throws Exception {
+        doThrow(new ProgressionCommandRejectedException(HttpStatusCode.valueOf(403)))
+                .when(groupCaseExtractService).extractCases(eq(GROUP_ID), any(ExtractCasesRequest.class));
+
+        mockMvc.perform(extractRequest(extractOne().build()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Progression did not accept the removal"));
+    }
+
+    @Test
+    void extract_without_a_configured_system_user_should_return_500() throws Exception {
+        doThrow(new SystemUserNotConfiguredException())
+                .when(groupCaseExtractService).extractCases(eq(GROUP_ID), any(ExtractCasesRequest.class));
+
+        mockMvc.perform(extractRequest(extractOne().build()))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("System user id is not configured"));
     }
 }

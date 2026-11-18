@@ -47,3 +47,15 @@ when
 then
   $o.setSuccess(true);
 end
+
+// POST /groupcases/{groupId}/extractcases: remove a case from a group case (CAD-1860). Same
+// groups as view and search.
+rule "Allow – extract group cases"
+when
+  $o: Outcome()
+  $a: Action(name == "casemanagement-service.extract-group-cases")
+  eval(userAndGroupProvider.isMemberOfAnyOfTheSuppliedGroups($a,
+          "System Users", "Legal Advisers", "Court Associate", "Court Administrators"))
+then
+  $o.setSuccess(true);
+end

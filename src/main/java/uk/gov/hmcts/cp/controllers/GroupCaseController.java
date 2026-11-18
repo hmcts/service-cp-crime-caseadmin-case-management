@@ -10,9 +10,12 @@ import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gov.hmcts.cp.openapi.api.GroupCasesApi;
 import uk.gov.hmcts.cp.openapi.model.CreateGroupCaseRequest;
+import uk.gov.hmcts.cp.openapi.model.ExtractCasesRequest;
+import uk.gov.hmcts.cp.openapi.model.ExtractCasesResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseResultingIntentsResponse;
 import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
+import uk.gov.hmcts.cp.services.GroupCaseExtractService;
 import uk.gov.hmcts.cp.services.GroupCaseService;
 
 /**
@@ -25,6 +28,7 @@ import uk.gov.hmcts.cp.services.GroupCaseService;
 public class GroupCaseController implements GroupCasesApi {
 
     private final GroupCaseService groupCaseService;
+    private final GroupCaseExtractService groupCaseExtractService;
 
     /**
      * Creates a group case. Called by prosecution-casefile when a group submission is received.
@@ -111,5 +115,27 @@ public class GroupCaseController implements GroupCasesApi {
 
         log.info("Get group case resulting intents request received for {} group id(s)", groupIds.size());
         return ResponseEntity.ok(groupCaseService.getResultingIntents(groupIds));
+    }
+
+    /**
+     * Removes one case from a group as an individual case (newGroup=false). Synchronous: returns
+     * only after Progression accepts the removal and the group case record is updated.
+     *
+     * @param cjsCppUid authenticated user identifier from the request header
+     * @param groupId the group to remove the case from
+     * @param extractCasesRequest the case to remove and, when it is the lead, the new lead
+     * @param cppClientCorrelationId optional correlation identifier supplied by the client
+     * @return HTTP 204 with no body
+     */
+    @Override
+    public ResponseEntity<ExtractCasesResponse> extractGroupCases(
+            final String cjsCppUid,
+            final UUID groupId,
+            final ExtractCasesRequest extractCasesRequest,
+            @Nullable final String cppClientCorrelationId) {
+
+        log.info("Extract cases request received for group {}", groupId);
+        groupCaseExtractService.extractCases(groupId, extractCasesRequest);
+        return ResponseEntity.noContent().build();
     }
 }

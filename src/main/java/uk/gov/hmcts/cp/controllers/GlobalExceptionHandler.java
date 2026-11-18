@@ -25,10 +25,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
+import uk.gov.hmcts.cp.exceptions.ProgressionCommandRejectedException;
+import uk.gov.hmcts.cp.exceptions.SystemUserNotConfiguredException;
 import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
 
 /**
- * Maps exceptions to the ErrorResponse defined in the OpenAPI spec: 400, 404 and 409, plus a
+ * Maps exceptions to the ErrorResponse defined in the OpenAPI spec: 400, 404, 409 and 500, plus a
  * 500 fallback so the client never sees a body that is not an ErrorResponse. Messages carry
  * field names and ids only, never request values, so personal data is not echoed back.
  */
@@ -56,6 +58,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(GroupCaseNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleGroupCaseNotFound(final GroupCaseNotFoundException exception) {
         return error(HttpStatus.NOT_FOUND, "Not Found", exception.getMessage());
+    }
+
+    /**
+     * Handles a command Progression did not accept (or could not receive) and returns a 500
+     * ErrorResponse. Progression's own status is logged but not passed through, so a rejection
+     * of the system user is not reported to the caller as their own 403.
+     */
+    @ExceptionHandler(ProgressionCommandRejectedException.class)
+    public ResponseEntity<ErrorResponse> handleProgressionCommandRejected(
+            final ProgressionCommandRejectedException exception) {
+        log.error("Progression command not accepted: {}", exception.getMessage(), exception);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Progression did not accept the removal");
+    }
+
+    /** Handles a missing system user id configuration and returns a 500 ErrorResponse. */
+    @ExceptionHandler(SystemUserNotConfiguredException.class)
+    public ResponseEntity<ErrorResponse> handleSystemUserNotConfigured(final SystemUserNotConfiguredException exception) {
+        log.error("Cannot call Progression: {}", exception.getMessage());
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", exception.getMessage());
     }
 
     /** Handles bean validation failures on request bodies and returns a 400 ErrorResponse. */

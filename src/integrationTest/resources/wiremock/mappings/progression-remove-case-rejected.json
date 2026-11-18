@@ -1,0 +1,10 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/progression-command-api/command/api/rest/progression/prosecutioncases/99999999-9999-9999-9999-999999999999"
+  },
+  "response": {
+    "status": 500
+  }
+}

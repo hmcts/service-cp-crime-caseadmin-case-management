@@ -16,7 +16,10 @@ spring:
       enabled: ${VIRTUAL_THREADS:false}
 
 casemanagement:
-  system-user-id: ${CASEMANAGEMENT_SYSTEM_USER_ID:}
+  # System user for commands sent to Progression (CAD-1860). Case management has no system user of
+  # its own yet, so this falls back to the court scheduler's until one is created by a static data
+  # patch; then set CASEMANAGEMENT_SYSTEM_USER_ID and remove the fallback.
+  system-user-id: ${CASEMANAGEMENT_SYSTEM_USER_ID:${COURTSCHEDULER_SYSTEM_USER_ID:}}
 
 common-platform-query-api:
   base-url: ${CP_CM_BASE_URL:http://localhost:8080}
