@@ -60,6 +60,14 @@ class ActionHeaderFilterTest {
     }
 
     @Test
+    void post_groupcases_extractcases_should_resolve_the_extract_action() throws Exception {
+        final HttpServletRequest seen =
+                filtered(request("POST", "/groupcases/2c76c12c-b400-4f92-8caf-7e2bd0a43cd3/extractcases"));
+
+        assertThat(seen.getHeader(ACTION_HEADER)).isEqualTo("casemanagement-service.extract-group-cases");
+    }
+
+    @Test
     void caller_supplied_action_should_be_replaced_on_a_recognised_path() throws Exception {
         final MockHttpServletRequest request = request("POST", "/groupcases");
         request.addHeader(ACTION_HEADER, "something-more-permissive");

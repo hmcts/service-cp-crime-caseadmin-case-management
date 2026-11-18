@@ -37,6 +37,18 @@ class GroupCaseRepositoryTest {
     private GroupCaseRepository groupCaseRepository;
 
     @Test
+    void shouldFindGroupWithLockById() {
+        final GroupCaseEntity groupCase = groupCase(UUID.randomUUID(), null, START_DATE, "Defendant A");
+        groupCaseRepository.saveAndFlush(groupCase);
+
+        assertThat(groupCaseRepository.findWithLockByGroupId(groupCase.getGroupId()))
+                .get()
+                .extracting(GroupCaseEntity::getCaseCount)
+                .isEqualTo(3);
+        assertThat(groupCaseRepository.findWithLockByGroupId(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
     void shouldSaveAndFindGroupById() {
         final UUID courtCentreId = UUID.randomUUID();
         final GroupCaseEntity groupCase = groupCase(courtCentreId, null, START_DATE, "Defendant A");
