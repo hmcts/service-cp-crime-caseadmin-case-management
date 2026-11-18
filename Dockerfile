@@ -20,9 +20,13 @@ ENV CJSCPPUID=$CJSCPPUID
 ENV SERVER_PORT=${SERVER_PORT:-4550}
 
 # ---- Dependencies ----
+# The apt runtime library is named per Ubuntu release (libapt-pkg6.0t64 on 24.04 noble, which the
+# publish pipeline passes as BASE_IMAGE; libapt-pkg7.0 on 26.04, the default eclipse-temurin:25-jre),
+# so upgrade whichever one is installed rather than naming it.
 RUN apt-get update \
     && apt-get install -y curl \
-    && apt-get install -y --only-upgrade libbrotli1 apt libapt-pkg7.0 \
+    && apt-get install -y --only-upgrade libbrotli1 apt \
+       $(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'libapt-pkg*' | awk '$1 == "ii" { print $2 }') \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- Application files ----
