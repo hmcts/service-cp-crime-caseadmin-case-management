@@ -65,7 +65,7 @@ public class GroupCaseMapper {
 
         final GroupCaseResponse.GroupCaseResponseBuilder response = GroupCaseResponse.builder()
                 .groupId(entity.getGroupId())
-                .prosecutingAuthority(entity.getProsecutingAuthorityCode())
+                .prosecutingAuthority(entity.getProsecutingAuthorityName())
                 .courtHearingLocation(entity.getCourtHearingLocation())
                 .dateOfHearing(entity.getDateOfHearing())
                 .offenceType(entity.getOffenceType())
@@ -105,7 +105,7 @@ public class GroupCaseMapper {
     private GroupCaseSummary toSummary(final GroupCaseEntity entity) {
         return GroupCaseSummary.builder()
                 .groupId(entity.getGroupId())
-                .prosecutingAuthority(entity.getProsecutingAuthorityCode())
+                .prosecutingAuthority(entity.getProsecutingAuthorityName())
                 .leadCase(LeadCase.builder()
                         .leadCaseId(entity.getLeadCaseId())
                         .caseUrn(entity.getLeadCaseUrn())

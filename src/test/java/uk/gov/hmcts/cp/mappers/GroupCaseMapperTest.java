@@ -94,6 +94,7 @@ class GroupCaseMapperTest {
                 .courtHearingLocation("B01LY01")
                 .courtCentreId(UUID.fromString("00000000-0000-0000-0000-000000000004"))
                 .prosecutingAuthorityCode("EXAMPLE01")
+                .prosecutingAuthorityName("Example Council")
                 .offenceType("Council Tax")
                 .caseCount(caseCount)
                 .resultingIntent(ResultingIntent.WITHDRAW)
@@ -130,7 +131,7 @@ class GroupCaseMapperTest {
                 mapper.toResponse(entity, progressionResponse(List.of(caseSummary())), REFERRED_CASE_ID);
 
         assertThat(response.getGroupId()).isEqualTo(GROUP_ID);
-        assertThat(response.getProsecutingAuthority()).isEqualTo("EXAMPLE01");
+        assertThat(response.getProsecutingAuthority()).isEqualTo("Example Council");
         assertThat(response.getCourtHearingLocation()).isEqualTo("B01LY01");
         assertThat(response.getDateOfHearing()).isEqualTo(LocalDate.of(2026, 12, 1));
         assertThat(response.getOffenceType()).isEqualTo("Council Tax");
@@ -192,7 +193,7 @@ class GroupCaseMapperTest {
 
         final var summary = response.getGroupCases().get(0);
         assertThat(summary.getGroupId()).isEqualTo(GROUP_ID);
-        assertThat(summary.getProsecutingAuthority()).isEqualTo("EXAMPLE01");
+        assertThat(summary.getProsecutingAuthority()).isEqualTo("Example Council");
         assertThat(summary.getDateOfHearing()).isEqualTo(LocalDate.of(2026, 12, 1));
         assertThat(summary.getCourtHearingLocation()).isEqualTo("B01LY01");
         assertThat(summary.getCourtCentreId()).isEqualTo(entity.getCourtCentreId().toString());
