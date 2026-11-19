@@ -1,0 +1,12 @@
+{
+  "priority": 1,
+  "request": {
+    "method": "POST",
+    "urlPath": "/v2.1/track"
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "itemsReceived": 1, "itemsAccepted": 1, "errors": [] }
+  }
+}

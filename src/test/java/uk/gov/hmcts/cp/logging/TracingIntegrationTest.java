@@ -23,7 +23,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 @TestPropertySource(properties = {
         "spring.application.name=service-cp-crime-caseadmin-case-management",
@@ -37,6 +39,10 @@ class TracingIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    // GlobalExceptionHandler needs it; without this the slice starts only because of lazy-init
+    @MockitoBean
+    private PublishMetricsService publishMetricsService;
 
     @Value("${spring.application.name}")
     private String springApplicationName;

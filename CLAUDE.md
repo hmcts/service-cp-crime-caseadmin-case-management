@@ -39,7 +39,7 @@ Shared HMCTS code rules are imported via `.claude/CLAUDE.md` (gitignored, create
 - Dependencies must stay in `build.gradle` (Dependabot does not track `apply from` files). `gradle/*.gradle` files (`pmd`, `test`, `jar`, `java`, `dependency`, `repositories`, `apispec-validation`) are template leftovers and are not applied by `build.gradle`; the root build file is the source of truth.
 - Configuration is split across `application.yaml` (imports the others as `optional:classpath:`), `application-datasource.yml` (Postgres, `CP_CM_DATASOURCE_*` env vars), `application-authz.yml` (Drools-based authz filter using `CJSCPPUID` / `CPP-ACTION` headers, disabled unless `CP_CM_AUTHZ_ENABLED=true`; calls the usersgroups query API at `CP_CM_BASE_URL`), and `application-server-management.yml` (port, context path, actuator, OTLP tracing/metrics).
 - All endpoints are served under context path `/casemanagement-service` (including `/actuator/health`); health checks in compose files, `build.gradle` and `codeql.yml` depend on it.
-- Logging is JSON via `logback.xml` (logstash encoder); Application Insights agent config is in `lib/applicationinsights.json`.
+- Logging is JSON via `logback.xml` (logstash encoder). There is no Application Insights Java agent: custom metrics go to Azure Monitor only when code publishes them (`uk.gov.hmcts.cp.monitoring`, see `docs/AzureMonitor.md`), off unless `CP_CM_AZURE_MONITOR_ENABLED=true`.
 - CI is GitHub Actions (`.github/workflows`: build/publish, CodeQL + ZAP scan against the running container, secrets scanner, PMD code analysis). See `docs/PIPELINE.md`.
 
 ## Naming caveats

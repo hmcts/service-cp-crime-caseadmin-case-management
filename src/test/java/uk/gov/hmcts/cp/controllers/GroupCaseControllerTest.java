@@ -50,6 +50,7 @@ import uk.gov.hmcts.cp.openapi.model.GroupCaseSearchResponse;
 import uk.gov.hmcts.cp.openapi.model.ResultingIntent;
 import uk.gov.hmcts.cp.services.GroupCaseExtractService;
 import uk.gov.hmcts.cp.services.GroupCaseService;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 @TestPropertySource(properties = "server.servlet.context-path=")
 @WebMvcTest(controllers = GroupCaseController.class)
@@ -71,6 +72,9 @@ class GroupCaseControllerTest {
 
     @MockitoBean
     private GroupCaseExtractService groupCaseExtractService;
+
+    @MockitoBean
+    private PublishMetricsService publishMetricsService;
 
     private MockHttpServletRequestBuilder createRequest(final Object body) {
         return post(PATH)
@@ -448,6 +452,9 @@ class GroupCaseControllerTest {
 
         mockMvc.perform(extractRequest(extractOne().build()))
                 .andExpect(status().isNotFound());
+        // The handler offers every exception; PublishMetricsService decides (by annotation) what is sent
+        verify(publishMetricsService).publishExceptionIfEnabled(eq("rest"), any(GroupCaseNotFoundException.class),
+                eq(HttpStatus.NOT_FOUND));
     }
 
     @Test
@@ -458,6 +465,8 @@ class GroupCaseControllerTest {
         mockMvc.perform(extractRequest(extractOne().build()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("Progression did not accept the removal"));
+        verify(publishMetricsService).publishExceptionIfEnabled(eq("rest"),
+                any(ProgressionCommandRejectedException.class), eq(HttpStatus.INTERNAL_SERVER_ERROR));
     }
 
     @Test
@@ -468,5 +477,7 @@ class GroupCaseControllerTest {
         mockMvc.perform(extractRequest(extractOne().build()))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("System user id is not configured"));
+        verify(publishMetricsService).publishExceptionIfEnabled(eq("rest"),
+                any(SystemUserNotConfiguredException.class), eq(HttpStatus.INTERNAL_SERVER_ERROR));
     }
 }

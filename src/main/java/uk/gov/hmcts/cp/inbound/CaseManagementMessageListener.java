@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import uk.gov.hmcts.cp.config.ServiceBusHealthIndicator;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 /**
  * Turns one Service Bus delivery into exactly one settlement: complete, abandon or dead-letter.
@@ -29,15 +30,22 @@ public class CaseManagementMessageListener {
     private static final int MAX_CAUSE_DEPTH = 10;
     private static final String REASON_VALIDATION = "VALIDATION";
     private static final String REASON_UNEXPECTED = "UNEXPECTED_FAILURE";
+    /** The {@code source} dimension of exceptions this listener publishes to Azure Monitor. */
+    private static final String METRIC_SOURCE = "servicebus";
+    /** The {@code outcome} dimension of a dead-lettered message. */
+    private static final String OUTCOME_DEADLETTER = "deadletter";
     private static final ObjectMapper MAPPER = JsonMapper.builder().build();
 
     private final InboundMessageHandler handler;
     private final ServiceBusHealthIndicator health;
+    private final PublishMetricsService publishMetricsService;
 
     public CaseManagementMessageListener(
-            final InboundMessageHandler handler, final ServiceBusHealthIndicator health) {
+            final InboundMessageHandler handler, final ServiceBusHealthIndicator health,
+            final PublishMetricsService publishMetricsService) {
         this.handler = handler;
         this.health = health;
+        this.publishMetricsService = publishMetricsService;
     }
 
     /** Processes and settles one delivery. Never throws: a throw would hand settlement to the SDK. */
@@ -64,10 +72,12 @@ public class CaseManagementMessageListener {
             decision = new SettlementDecision.Complete();
         } catch (InvalidMessageException invalid) {
             log.error("Message refused; parking it. reason={}", invalid.getMessage());
+            publishMetricsService.publishExceptionIfEnabled(METRIC_SOURCE, invalid, null);
             decision = new SettlementDecision.DeadLetter(REASON_VALIDATION, invalid.getMessage());
         } catch (RuntimeException unexpected) {
             log.error("Delivery failed unexpectedly; returning it for redelivery. type={}",
                     unexpected.getClass().getName(), unexpected);
+            publishMetricsService.publishExceptionIfEnabled(METRIC_SOURCE, unexpected, null);
             decision = new SettlementDecision.Abandon(REASON_UNEXPECTED);
         }
         return decision;
@@ -97,8 +107,14 @@ public class CaseManagementMessageListener {
                     () -> context.deadLetter(new DeadLetterOptions()
                             .setDeadLetterReason(reason)
                             .setDeadLetterErrorDescription(description)),
-                    () -> log.warn("Delivery parked on the dead-letter queue. reason={} detail={}",
-                            reason, description));
+                    () -> {
+                        log.warn("Delivery parked on the dead-letter queue. reason={} detail={}",
+                                reason, description);
+                        // Explicitly chosen for Azure Monitor: a parked message needs someone to look at it.
+                        // Counts only what this listener parks. A message the broker parks itself after
+                        // MaxDeliveryCount abandons never comes back here: see docs/AzureMonitor.md.
+                        publishMetricsService.publishMessageSettlement(OUTCOME_DEADLETTER, reason);
+                    });
         }
     }
 

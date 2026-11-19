@@ -31,7 +31,6 @@ RUN apt-get update \
 
 # ---- Application files ----
 COPY $JAR_FULL_PATH /opt/app/app.jar
-COPY lib/applicationinsights.json /opt/app/
 
 # ---- Permissions ----
 RUN chmod 755 /opt/app/app.jar

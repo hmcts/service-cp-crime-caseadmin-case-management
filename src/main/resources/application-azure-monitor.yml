@@ -1,0 +1,12 @@
+# Azure Monitor (Application Insights) custom metrics. Opt-in twice over: nothing is exported unless
+# enabled here, and even then only what code publishes through AzureMonitorService /
+# PublishMetricsService (or exceptions annotated with @PublishToAzureMonitor).
+casemanagement:
+  azure-monitor:
+    enabled: ${CP_CM_AZURE_MONITOR_ENABLED:false}
+    # Application Insights connection string. Required when enabled. In AKS it comes from Key Vault
+    # via the Secrets Store CSI driver as APPLICATIONINSIGHTS_CONNECTION_STRING (the platform
+    # convention, as in yot-results-distribution); CP_CM_AZURE_INSIGHTS_CONNECTION_STRING overrides
+    # it, e.g. to point a local run at a dev resource.
+    connection-string: ${CP_CM_AZURE_INSIGHTS_CONNECTION_STRING:${APPLICATIONINSIGHTS_CONNECTION_STRING:}}
+    export-interval: ${CP_CM_AZURE_MONITOR_EXPORT_INTERVAL:60s}

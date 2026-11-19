@@ -42,6 +42,10 @@ services:
       - CP_CM_ARTEMIS_BROKER_URL=tcp://artemis:61616
       - CP_CM_ARTEMIS_USER=admin
       - CP_CM_ARTEMIS_PASSWORD=admin
+      # Azure Monitor custom metrics (docs/AzureMonitor.md). Off unless enabled; uncomment and set a
+      # dev Application Insights connection string to send metrics from a local run.
+      # - CP_CM_AZURE_MONITOR_ENABLED=true
+      # - CP_CM_AZURE_INSIGHTS_CONNECTION_STRING=${CP_CM_AZURE_INSIGHTS_CONNECTION_STRING}
       # Lists the servicebus / publicEvents components on /actuator/health (and their own paths,
       # which are 404 otherwise); used by scripts/container-smoke.sh. Local only.
       - MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS=always
