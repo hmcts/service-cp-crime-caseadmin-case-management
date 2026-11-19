@@ -42,17 +42,11 @@ public final class AzureMonitorExporter implements AutoCloseable {
         final AutoConfiguredOpenTelemetrySdkBuilder builder = AutoConfiguredOpenTelemetrySdk.builder()
                 .disableShutdownHook();                       // Spring closes it, see close()
         AzureMonitorAutoConfigure.customize(builder, connectionString);
-        // Entra ID (managed identity), NOT IN USE YET. Ingestion is authorised by the key in the
-        // connection string today. To switch, replace the line above with:
-        //
-        //   AzureMonitorAutoConfigure.customize(builder, new AzureMonitorAutoConfigureOptions()
-        //           .connectionString(connectionString)          // still needed: it carries the endpoint
-        //           .credential(new DefaultAzureCredentialBuilder().build()));
-        //
-        // (azure-identity is already a dependency, for Service Bus), then in Azure: grant the pod's
-        // workload identity "Monitoring Metrics Publisher" on the Application Insights resource,
-        // and only after metrics are seen arriving, disable local authentication on that resource.
-        // See docs/AzureMonitor.md, "Moving to Entra ID".
+        // Entra ID (managed identity) is NOT IN USE YET: ingestion is authorised by the key in the
+        // connection string. To switch, pass AzureMonitorAutoConfigureOptions here instead, with the
+        // same connection string (it still carries the endpoint) plus a DefaultAzureCredential, and
+        // grant the pod's workload identity "Monitoring Metrics Publisher" on the resource. The exact
+        // code and the Azure steps are in docs/AzureMonitor.md, "Moving to Entra ID".
         // A properties customizer runs after every properties supplier (Azure's included) and after
         // OTEL_* environment variables, so these always win.
         builder.addPropertiesCustomizer(config -> metricsOnlyProperties(serviceName, exportInterval));

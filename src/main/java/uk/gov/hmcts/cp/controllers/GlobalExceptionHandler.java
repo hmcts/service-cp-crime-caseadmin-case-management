@@ -41,6 +41,7 @@ import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
 public class GlobalExceptionHandler {
 
     private static final String BAD_REQUEST = "Bad Request";
+    private static final String INTERNAL_SERVER_ERROR = "Internal Server Error";
 
     /** The {@code source} dimension of exceptions this handler publishes to Azure Monitor. */
     private static final String METRIC_SOURCE = "rest";
@@ -75,14 +76,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleProgressionCommandRejected(
             final ProgressionCommandRejectedException exception) {
         log.error("Progression command not accepted: {}", exception.getMessage(), exception);
-        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Progression did not accept the removal");
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_SERVER_ERROR, "Progression did not accept the removal");
     }
 
     /** Handles a missing system user id configuration and returns a 500 ErrorResponse. */
     @ExceptionHandler(SystemUserNotConfiguredException.class)
     public ResponseEntity<ErrorResponse> handleSystemUserNotConfigured(final SystemUserNotConfiguredException exception) {
         log.error("Cannot call Progression: {}", exception.getMessage());
-        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", exception.getMessage());
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_SERVER_ERROR, exception.getMessage());
     }
 
     /** Handles bean validation failures on request bodies and returns a 400 ErrorResponse. */
@@ -162,7 +163,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(final Exception exception) {
         log.error("Unhandled exception", exception);
-        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred");
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }
 
     /**

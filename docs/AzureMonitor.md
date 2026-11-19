@@ -138,10 +138,19 @@ customMetrics
 Ingestion is currently authorised by the key inside the connection string. To move to Entra ID
 (managed identity) later:
 
-1. In `AzureMonitorExporter`, replace `AzureMonitorAutoConfigure.customize(builder, connectionString)`
-   with the commented-out `AzureMonitorAutoConfigureOptions` version beside it, which adds
-   `.credential(new DefaultAzureCredentialBuilder().build())`. The connection string stays, because it
-   carries the ingestion endpoint.
+1. In `AzureMonitorExporter`'s constructor, replace
+   `AzureMonitorAutoConfigure.customize(builder, connectionString);` with:
+
+   ```java
+   AzureMonitorAutoConfigure.customize(builder, new AzureMonitorAutoConfigureOptions()
+           .connectionString(connectionString)          // still needed: it carries the ingestion endpoint
+           .credential(new DefaultAzureCredentialBuilder().build()));
+   ```
+
+   Imports: `com.azure.monitor.opentelemetry.autoconfigure.AzureMonitorAutoConfigureOptions` and
+   `com.azure.identity.DefaultAzureCredentialBuilder` (`azure-identity` is already a dependency, for
+   Service Bus). The code is kept here rather than commented out in the class, which Sonar flags
+   (S125).
 2. Grant the pod's workload identity the **Monitoring Metrics Publisher** role on the Application
    Insights resource.
 3. Deploy, confirm metrics arrive, and only then disable local authentication on the resource.
