@@ -54,6 +54,11 @@ services:
       # WireMock service running in Docker container
       COMMON_PLATFORM_QUERY_API_BASE_URL: "http://wiremock:8080"
       CP_CM_BASE_URL: "http://wiremock:8080"
+      # Azure Monitor metrics go to WireMock, standing in for Application Insights' ingestion
+      # endpoint (POST /v2.1/track); AzureMonitorHttpLiveTest reads them from its request journal.
+      CP_CM_AZURE_MONITOR_ENABLED: "true"
+      CP_CM_AZURE_INSIGHTS_CONNECTION_STRING: "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=http://wiremock:8080/;LiveEndpoint=http://wiremock:8080/"
+      CP_CM_AZURE_MONITOR_EXPORT_INTERVAL: "2s"
     depends_on:
       db:
         condition: service_healthy

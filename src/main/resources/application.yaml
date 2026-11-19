@@ -11,6 +11,7 @@ spring:
       - "optional:classpath:application-authz.yml"
       - "optional:classpath:application-server-management.yml"
       - "optional:classpath:application-messaging.yml"
+      - "optional:classpath:application-azure-monitor.yml"
   threads:
     virtual:
       enabled: ${VIRTUAL_THREADS:false}

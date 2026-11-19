@@ -13,6 +13,8 @@ import uk.gov.hmcts.cp.config.ServiceBusHealthIndicator;
 import uk.gov.hmcts.cp.inbound.CaseManagementMessageListener;
 import uk.gov.hmcts.cp.inbound.InboundMessage;
 import uk.gov.hmcts.cp.inbound.InvalidMessageException;
+import uk.gov.hmcts.cp.monitoring.AzureMonitorService;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 /**
  * The production {@link CaseManagementMessageListener}, consuming the emulator's queue through a
@@ -37,7 +39,8 @@ public final class QueueConsumerHarness implements AutoCloseable {
 
     public QueueConsumerHarness() {
         final CaseManagementMessageListener listener = new CaseManagementMessageListener(
-                this::handle, new ServiceBusHealthIndicator(Duration.ofSeconds(60), Clock.systemUTC()));
+                this::handle, new ServiceBusHealthIndicator(Duration.ofSeconds(60), Clock.systemUTC()),
+                new PublishMetricsService(AzureMonitorService.noop()));
         processor = new ServiceBusClientBuilder()
                 .connectionString(ServiceBusEmulatorTestSupport.connectionString())
                 .processor()

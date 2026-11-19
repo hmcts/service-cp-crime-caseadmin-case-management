@@ -2,11 +2,13 @@ package uk.gov.hmcts.cp.exceptions;
 
 import java.io.Serial;
 import org.springframework.http.HttpStatusCode;
+import uk.gov.hmcts.cp.monitoring.PublishToAzureMonitor;
 
 /**
  * Thrown when Progression does not accept a command with 202, or cannot be reached. Nothing has
  * been changed in case management when this is thrown. Mapped to 500.
  */
+@PublishToAzureMonitor
 public class ProgressionCommandRejectedException extends RuntimeException {
 
     @Serial

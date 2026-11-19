@@ -20,7 +20,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
 import uk.gov.hmcts.cp.config.ServiceBusHealthIndicator;
+import uk.gov.hmcts.cp.exceptions.ProgressionCommandRejectedException;
+import uk.gov.hmcts.cp.monitoring.InMemoryAzureMonitor;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 class CaseManagementMessageListenerTest {
 
@@ -30,6 +35,7 @@ class CaseManagementMessageListenerTest {
     private ServiceBusReceivedMessage message;
     private final ServiceBusHealthIndicator health =
             new ServiceBusHealthIndicator(Duration.ofSeconds(60), Clock.systemUTC());
+    private final InMemoryAzureMonitor azure = new InMemoryAzureMonitor();
 
     @BeforeEach
     void setUp() {
@@ -43,7 +49,7 @@ class CaseManagementMessageListenerTest {
 
     private void deliver(final String body) {
         when(message.getBody()).thenReturn(BinaryData.fromString(body));
-        new CaseManagementMessageListener(handler, health).onMessage(context);
+        new CaseManagementMessageListener(handler, health, azure.publishMetricsService()).onMessage(context);
     }
 
     @Test
@@ -119,5 +125,79 @@ class CaseManagementMessageListenerTest {
         deliver("{}");
 
         assertThat(health.health().getStatus().getCode()).isEqualTo("DOWN");
+    }
+
+    // ---------- Azure Monitor: only what was chosen is published ----------
+
+    @Test
+    void completed_message_publishes_nothing() {
+        deliver("{}");
+
+        verify(context).complete();
+        assertThat(azure.metricNames()).isEmpty();
+    }
+
+    @Test
+    void invalid_body_publishes_a_dead_letter_settlement() {
+        deliver("not json");
+
+        assertThat(azure.counterValues(PublishMetricsService.MESSAGE_SETTLEMENTS_METRIC))
+                .containsExactly(Map.entry(Map.of("outcome", "deadletter", "reason", "VALIDATION"), 1L));
+        // InvalidMessageException is not opted in, so no exception metric
+        assertThat(azure.metricNames()).containsExactly(PublishMetricsService.MESSAGE_SETTLEMENTS_METRIC);
+    }
+
+    @Test
+    void handler_refusal_publishes_a_dead_letter_settlement() {
+        handler = refused -> {
+            throw new InvalidMessageException("groupId missing");
+        };
+        deliver("{}");
+
+        assertThat(azure.counterTotal(PublishMetricsService.MESSAGE_SETTLEMENTS_METRIC)).isEqualTo(1L);
+    }
+
+    @Test
+    void dead_letter_the_broker_refuses_is_not_counted_as_parked() {
+        doThrow(new IllegalStateException("link closed")).when(context).deadLetter(any(DeadLetterOptions.class));
+
+        deliver("not json");
+
+        assertThat(azure.metricNames()).isEmpty();
+    }
+
+    @Test
+    void unexpected_failure_that_is_not_opted_in_publishes_nothing() {
+        handler = failing -> {
+            throw new IllegalStateException("database down");
+        };
+        deliver("{}");
+
+        verify(context).abandon();
+        assertThat(azure.metricNames()).isEmpty();
+    }
+
+    @Test
+    void opted_in_exception_from_the_handler_is_published_with_source_servicebus() {
+        handler = failing -> {
+            throw new ProgressionCommandRejectedException(HttpStatus.BAD_GATEWAY);
+        };
+        deliver("{}");
+
+        verify(context).abandon();
+        assertThat(azure.counterValues(PublishMetricsService.EXCEPTIONS_METRIC)).containsExactly(Map.entry(
+                Map.of("source", "servicebus", "exception_type", "ProgressionCommandRejectedException"), 1L));
+    }
+
+    @Test
+    void opted_in_exception_wrapped_by_the_handler_is_still_published() {
+        handler = failing -> {
+            throw new IllegalStateException("proxy", new ProgressionCommandRejectedException(HttpStatus.BAD_GATEWAY));
+        };
+        deliver("{}");
+
+        verify(context).abandon();
+        assertThat(azure.counterValues(PublishMetricsService.EXCEPTIONS_METRIC)).containsOnlyKeys(
+                Map.of("source", "servicebus", "exception_type", "ProgressionCommandRejectedException"));
     }
 }

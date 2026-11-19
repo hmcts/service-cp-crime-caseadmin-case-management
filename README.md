@@ -98,6 +98,7 @@ Further documentation can be found in the [docs](docs) directory.
 - [Spring Boot v4 Upgrade Guide](docs/SpringUpgradev4.md) - Details on the Spring Boot v4 upgrade, tracing test fixes, and code refactoring improvements
 - [Logging Documentation](docs/Logging.md) - Logging configuration and best practices
 - [Pipeline Documentation](docs/PIPELINE.md) - CI/CD pipeline configuration and deployment processes
+- [Azure Monitor Metrics](docs/AzureMonitor.md) - Opt-in custom metrics to Application Insights: configuration, publishing events/exceptions, KQL, testing
 
 ### Prerequisites
 

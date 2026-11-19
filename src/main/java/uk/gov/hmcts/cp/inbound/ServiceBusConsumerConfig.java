@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import uk.gov.hmcts.cp.config.MessagingProperties;
 import uk.gov.hmcts.cp.config.ServiceBusHealthIndicator;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 
 /**
  * Wires the Azure Service Bus consumer: a {@link ServiceBusProcessorClient} on the configured queue,
@@ -43,8 +44,9 @@ public class ServiceBusConsumerConfig {
 
     @Bean
     public CaseManagementMessageListener caseManagementMessageListener(
-            final InboundMessageHandler handler, final ServiceBusHealthIndicator health) {
-        return new CaseManagementMessageListener(handler, health);
+            final InboundMessageHandler handler, final ServiceBusHealthIndicator health,
+            final PublishMetricsService publishMetricsService) {
+        return new CaseManagementMessageListener(handler, health, publishMetricsService);
     }
 
     @Bean(destroyMethod = "close")

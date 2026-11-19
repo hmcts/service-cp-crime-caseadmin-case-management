@@ -27,6 +27,7 @@ import uk.gov.hmcts.cp.exceptions.GroupCaseAlreadyExistsException;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.exceptions.ProgressionCommandRejectedException;
 import uk.gov.hmcts.cp.exceptions.SystemUserNotConfiguredException;
+import uk.gov.hmcts.cp.monitoring.PublishMetricsService;
 import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
 
 /**
@@ -41,23 +42,28 @@ public class GlobalExceptionHandler {
 
     private static final String BAD_REQUEST = "Bad Request";
 
+    /** The {@code source} dimension of exceptions this handler publishes to Azure Monitor. */
+    private static final String METRIC_SOURCE = "rest";
+
     private final ObjectProvider<Tracer> tracer;
+    private final PublishMetricsService publishMetricsService;
 
     /** Constructs the handler; the tracer is optional so it also works without tracing. */
-    public GlobalExceptionHandler(final ObjectProvider<Tracer> tracer) {
+    public GlobalExceptionHandler(final ObjectProvider<Tracer> tracer, final PublishMetricsService publishMetricsService) {
         this.tracer = tracer;
+        this.publishMetricsService = publishMetricsService;
     }
 
     /** Handles a groupId that already exists and returns a 409 ErrorResponse. */
     @ExceptionHandler(GroupCaseAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleGroupCaseAlreadyExists(final GroupCaseAlreadyExistsException exception) {
-        return error(HttpStatus.CONFLICT, "Conflict", exception.getMessage());
+        return error(exception, HttpStatus.CONFLICT, "Conflict", exception.getMessage());
     }
 
     /** Handles a referenced group case that does not exist and returns a 404 ErrorResponse. */
     @ExceptionHandler(GroupCaseNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleGroupCaseNotFound(final GroupCaseNotFoundException exception) {
-        return error(HttpStatus.NOT_FOUND, "Not Found", exception.getMessage());
+        return error(exception, HttpStatus.NOT_FOUND, "Not Found", exception.getMessage());
     }
 
     /**
@@ -69,14 +75,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleProgressionCommandRejected(
             final ProgressionCommandRejectedException exception) {
         log.error("Progression command not accepted: {}", exception.getMessage(), exception);
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Progression did not accept the removal");
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Progression did not accept the removal");
     }
 
     /** Handles a missing system user id configuration and returns a 500 ErrorResponse. */
     @ExceptionHandler(SystemUserNotConfiguredException.class)
     public ResponseEntity<ErrorResponse> handleSystemUserNotConfigured(final SystemUserNotConfiguredException exception) {
         log.error("Cannot call Progression: {}", exception.getMessage());
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", exception.getMessage());
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", exception.getMessage());
     }
 
     /** Handles bean validation failures on request bodies and returns a 400 ErrorResponse. */
@@ -86,7 +92,7 @@ public class GlobalExceptionHandler {
                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
                 .sorted()
                 .collect(Collectors.joining("; "));
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
     }
 
     /** Handles a query/path parameter that fails its bean-validation constraint and returns a 400 ErrorResponse. */
@@ -96,26 +102,26 @@ public class GlobalExceptionHandler {
                 .map(violation -> violation.getMessage())
                 .sorted()
                 .collect(Collectors.joining("; "));
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST, detail.isEmpty() ? "Validation failed" : detail);
     }
 
     /** Handles malformed request bodies and returns a 400 ErrorResponse. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(final HttpMessageNotReadableException exception) {
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Malformed request body");
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST, "Malformed request body");
     }
 
     /** Handles a missing required header, such as CJSCPPUID, and returns a 400 ErrorResponse. */
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ErrorResponse> handleMissingRequestHeader(final MissingRequestHeaderException exception) {
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Required header " + exception.getHeaderName() + " is missing");
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST, "Required header " + exception.getHeaderName() + " is missing");
     }
 
     /** Handles a missing required query parameter, such as courtCentreId, and returns a 400 ErrorResponse. */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingRequestParameter(
             final MissingServletRequestParameterException exception) {
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST,
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST,
                 "Required parameter " + exception.getParameterName() + " is missing");
     }
 
@@ -123,7 +129,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
             final MethodArgumentTypeMismatchException exception) {
-        return error(HttpStatus.BAD_REQUEST, BAD_REQUEST, "Parameter " + exception.getName() + " is invalid");
+        return error(exception, HttpStatus.BAD_REQUEST, BAD_REQUEST, "Parameter " + exception.getName() + " is invalid");
     }
 
     /** Handles an explicit business-error throw and passes its status straight through. */
@@ -135,31 +141,37 @@ public class GlobalExceptionHandler {
         } else {
             log.error("Business error: {}", exception.getReason(), exception);
         }
-        return error(status, HttpStatus.valueOf(status.value()).getReasonPhrase(), exception.getReason());
+        return error(exception, status, HttpStatus.valueOf(status.value()).getReasonPhrase(), exception.getReason());
     }
 
     /** Handles a 4xx from an upstream RestClient call (e.g. Progression) and passes the status through. */
     @ExceptionHandler(HttpClientErrorException.class)
     public ResponseEntity<ErrorResponse> handleHttpClientError(final HttpClientErrorException exception) {
         log.warn("Upstream client error: {}", exception.getStatusCode());
-        return error(exception.getStatusCode(), exception.getStatusText(), "Upstream request failed");
+        return error(exception, exception.getStatusCode(), exception.getStatusText(), "Upstream request failed");
     }
 
     /** Handles a 5xx from an upstream RestClient call (e.g. Progression) and passes the status through. */
     @ExceptionHandler(HttpServerErrorException.class)
     public ResponseEntity<ErrorResponse> handleHttpServerError(final HttpServerErrorException exception) {
         log.error("Upstream server error: {}", exception.getStatusCode(), exception);
-        return error(exception.getStatusCode(), exception.getStatusText(), "Upstream request failed");
+        return error(exception, exception.getStatusCode(), exception.getStatusText(), "Upstream request failed");
     }
 
     /** Handles any uncaught exception and returns a 500 ErrorResponse without internal details. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(final Exception exception) {
         log.error("Unhandled exception", exception);
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred");
+        return error(exception, HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred");
     }
 
-    private ResponseEntity<ErrorResponse> error(final HttpStatusCode status, final String error, final String message) {
+    /**
+     * Builds the ErrorResponse. Every handler goes through here, so this is where an exception whose
+     * type is annotated with {@code @PublishToAzureMonitor} is published; other exceptions are not.
+     */
+    private ResponseEntity<ErrorResponse> error(final Exception exception, final HttpStatusCode status,
+                                                final String error, final String message) {
+        publishMetricsService.publishExceptionIfEnabled(METRIC_SOURCE, exception, status);
         return ResponseEntity
                 .status(status)
                 .contentType(MediaType.APPLICATION_JSON)
