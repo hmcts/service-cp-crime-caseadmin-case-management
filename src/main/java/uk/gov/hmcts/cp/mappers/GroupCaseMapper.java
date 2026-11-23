@@ -79,8 +79,8 @@ public class GroupCaseMapper {
 
         if (storedCaseCount != actualCaseCount) {
             response.warning(GroupCaseResponse.WarningEnum.CASE_COUNT_MISMATCH)
-                    .warningMessage(("There are total (%d) number of cases in this bulk, but due to technical issues, " +
-                            "only (%d) number of cases are being displayed here. For further details please contact help desk.")
+                    .warningMessage(("There are a total of [ %d ] cases in this bulk list, but due to technical issues, only [ %d ] cases are being displayed here. \n" +
+                            "          Please contact the help desk for further information and assistance.")
                             .formatted(storedCaseCount, actualCaseCount))
                     .warningDetails(GroupCaseWarningDetails.builder()
                             .storedCaseCount(storedCaseCount)
