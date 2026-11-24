@@ -137,10 +137,7 @@ public class GroupCaseMapper {
     }
 
     private GroupMemberCase toGroupMemberCase(final ProgressionCaseSummary caseSummary) {
-        if (caseSummary == null) {
-            return null;
-        }
-        return GroupMemberCase.builder()
+        return caseSummary == null ? null : GroupMemberCase.builder()
                 .caseId(caseSummary.getCaseId())
                 .caseUrn(caseSummary.getCaseUrn())
                 .defendantName(caseSummary.getDefendantName())
