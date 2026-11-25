@@ -10,17 +10,20 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.clients.ProgressionClient;
 import uk.gov.hmcts.cp.config.CaseManagementSystemUser;
 import uk.gov.hmcts.cp.entity.GroupCaseEntity;
+import uk.gov.hmcts.cp.entity.RemovedCaseEntity;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.openapi.model.ExtractCasesRequest;
 import uk.gov.hmcts.cp.openapi.model.ExtractLeadCase;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
+import uk.gov.hmcts.cp.repository.RemovedCaseRepository;
 
 /**
  * Removes a case from a group (CAD-1860). Only one case at a time, as an individual case
  * (newGroup=false). Checks use case management's own group_case row; Progression is not queried.
  * The group is changed only after Progression accepts the remove command with 202. If Progression
  * later fails to process it, the stored case count no longer matches Progression and the group
- * case view shows the count-mismatch warning.
+ * case view shows the count-mismatch warning. Each removed case is recorded in removed_case
+ * (CAD-1859) in the same transaction as the group change.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class GroupCaseExtractService {
     private static final int MAX_CASES_PER_REMOVAL = 1;
 
     private final GroupCaseRepository groupCaseRepository;
+    private final RemovedCaseRepository removedCaseRepository;
     private final ProgressionClient progressionClient;
     private final CaseManagementSystemUser systemUser;
 
@@ -57,6 +61,10 @@ public class GroupCaseExtractService {
 
         final GroupCaseEntity group = groupCaseRepository.findWithLockByGroupId(groupId)
                 .orElseThrow(() -> new GroupCaseNotFoundException(groupId));
+        // checked after the group row is locked, so two requests removing the same case run in turn
+        if (removedCaseRepository.existsById(caseId)) {
+            throw badRequest("The case has already been removed from a group");
+        }
         if (group.getCaseCount() < MIN_CASES_BEFORE_REMOVAL) {
             throw badRequest("The group must have at least 2 cases to remove one");
         }
@@ -83,6 +91,10 @@ public class GroupCaseExtractService {
             group.setLeadDefendantName(newLead.getDefendantName());
         }
         groupCaseRepository.saveAndFlush(group);
+        removedCaseRepository.saveAndFlush(RemovedCaseEntity.builder()
+                .caseId(caseId)
+                .groupId(groupId)
+                .build());
         log.info("Case removed from group {}: Progression accepted the command, lead changed: {}, case count now {}",
                 groupId, leadRemoved, group.getCaseCount());
     }
