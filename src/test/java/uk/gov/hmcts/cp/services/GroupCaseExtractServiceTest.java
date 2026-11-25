@@ -18,6 +18,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import uk.gov.hmcts.cp.clients.ProgressionClient;
 import uk.gov.hmcts.cp.config.CaseManagementSystemUser;
 import uk.gov.hmcts.cp.entity.GroupCaseEntity;
+import uk.gov.hmcts.cp.entity.RemovedCaseEntity;
 import uk.gov.hmcts.cp.exceptions.GroupCaseNotFoundException;
 import uk.gov.hmcts.cp.exceptions.ProgressionCommandRejectedException;
 import uk.gov.hmcts.cp.exceptions.SystemUserNotConfiguredException;
@@ -33,6 +35,7 @@ import uk.gov.hmcts.cp.openapi.model.ExtractCasesRequest;
 import uk.gov.hmcts.cp.openapi.model.ExtractLeadCase;
 import uk.gov.hmcts.cp.openapi.model.ResultingIntent;
 import uk.gov.hmcts.cp.repository.GroupCaseRepository;
+import uk.gov.hmcts.cp.repository.RemovedCaseRepository;
 
 @ExtendWith(MockitoExtension.class)
 class GroupCaseExtractServiceTest {
@@ -47,6 +50,9 @@ class GroupCaseExtractServiceTest {
     private GroupCaseRepository groupCaseRepository;
 
     @Mock
+    private RemovedCaseRepository removedCaseRepository;
+
+    @Mock
     private ProgressionClient progressionClient;
 
     @Mock
@@ -56,7 +62,7 @@ class GroupCaseExtractServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new GroupCaseExtractService(groupCaseRepository, progressionClient, systemUser);
+        service = new GroupCaseExtractService(groupCaseRepository, removedCaseRepository, progressionClient, systemUser);
     }
 
     private static GroupCaseEntity storedGroupCase(final int caseCount) {
@@ -103,6 +109,13 @@ class GroupCaseExtractServiceTest {
                 });
         verifyNoInteractions(progressionClient);
         verify(groupCaseRepository, never()).saveAndFlush(any());
+        verify(removedCaseRepository, never()).saveAndFlush(any());
+    }
+
+    private RemovedCaseEntity savedRemovedCase() {
+        final ArgumentCaptor<RemovedCaseEntity> captor = ArgumentCaptor.forClass(RemovedCaseEntity.class);
+        verify(removedCaseRepository).saveAndFlush(captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -118,6 +131,9 @@ class GroupCaseExtractServiceTest {
         assertThat(entity.getLeadCaseId()).isEqualTo(LEAD_CASE_ID);
         assertThat(entity.getLeadCaseUrn()).isEqualTo("TESTURN0001");
         assertThat(entity.getLeadDefendantName()).isEqualTo("Example Defendant");
+        final RemovedCaseEntity removed = savedRemovedCase();
+        assertThat(removed.getCaseId()).isEqualTo(MEMBER_CASE_ID);
+        assertThat(removed.getGroupId()).isEqualTo(GROUP_ID);
     }
 
     @Test
@@ -133,6 +149,15 @@ class GroupCaseExtractServiceTest {
         assertThat(entity.getLeadCaseId()).isEqualTo(NEW_LEAD_CASE_ID);
         assertThat(entity.getLeadCaseUrn()).isEqualTo("TESTURN0004");
         assertThat(entity.getLeadDefendantName()).isEqualTo("Another Defendant");
+        assertThat(savedRemovedCase().getCaseId()).isEqualTo(LEAD_CASE_ID);
+    }
+
+    @Test
+    void case_already_removed_should_be_rejected() {
+        givenStoredGroup(5);
+        when(removedCaseRepository.existsById(MEMBER_CASE_ID)).thenReturn(true);
+
+        assertBadRequest(removeOne(MEMBER_CASE_ID).build(), "already been removed");
     }
 
     @Test
@@ -218,6 +243,7 @@ class GroupCaseExtractServiceTest {
                 .isInstanceOf(SystemUserNotConfiguredException.class);
         verifyNoInteractions(progressionClient);
         verify(groupCaseRepository, never()).saveAndFlush(any());
+        verify(removedCaseRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -230,6 +256,7 @@ class GroupCaseExtractServiceTest {
         assertThatThrownBy(() -> service.extractCases(GROUP_ID, removeOne(MEMBER_CASE_ID).build()))
                 .isInstanceOf(ProgressionCommandRejectedException.class);
         verify(groupCaseRepository, never()).saveAndFlush(any());
+        verify(removedCaseRepository, never()).saveAndFlush(any());
         assertThat(entity.getCaseCount()).isEqualTo(5);
         assertThat(entity.getLeadCaseId()).isEqualTo(LEAD_CASE_ID);
     }
